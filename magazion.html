@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>نظام المصنع</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Cairo:wght@400;600;700&display=swap');
+
+:root{
+  --bg:#15181c;
+  --panel:#1f242b;
+  --panel2:#262c34;
+  --line:#343c46;
+  --text:#eef1f3;
+  --muted:#8b96a3;
+  --yellow:#f2b705;
+  --orange:#e85d04;
+  --green:#2d9d6f;
+  --red:#d6473a;
+  --blue:#3d8bdb;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Cairo','Oswald',sans-serif;}
+[dir="ltr"] body, body.ltr{font-family:'Oswald','Cairo',sans-serif;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+#app{min-height:100vh;display:flex;flex-direction:column;}
+
+/* top bar - hazard stripe */
+.hazard{height:6px;background:repeating-linear-gradient(45deg,var(--yellow) 0 14px,#000 14px 28px);}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:20px;letter-spacing:.5px;}
+.logo .dot{width:12px;height:12px;background:var(--yellow);border-radius:2px;transform:rotate(45deg);}
+header .spacer{flex:1;}
+select,button,input{font-family:inherit;font-size:14px;}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--line);padding:7px 10px;border-radius:6px;}
+button{cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:8px 14px;font-weight:600;transition:.15s;}
+button:hover{border-color:var(--yellow);}
+button.primary{background:var(--yellow);color:#15181c;border-color:var(--yellow);}
+button.primary:hover{background:#ffd23f;}
+button.danger{background:var(--red);border-color:var(--red);color:#fff;}
+button.ghost{background:transparent;}
+nav{display:flex;gap:6px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;}
+nav button{white-space:nowrap;background:transparent;border:none;color:var(--muted);padding:8px 14px;border-bottom:3px solid transparent;border-radius:0;}
+nav button.active{color:var(--yellow);border-bottom-color:var(--yellow);}
+main{flex:1;padding:22px;max-width:1300px;margin:0 auto;width:100%;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px;}
+.card h3{margin:0 0 14px;font-size:16px;color:var(--yellow);display:flex;align-items:center;gap:8px;}
+.grid{display:grid;gap:14px;}
+.grid.cols-2{grid-template-columns:1fr 1fr;}
+.grid.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:800px){.grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr;}}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:9px 10px;border-radius:6px;}
+.field{margin-bottom:10px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:start;}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px;}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700;}
+.badge.ok{background:rgba(45,157,111,.18);color:var(--green);}
+.badge.warn{background:rgba(232,93,4,.18);color:var(--orange);}
+.badge.bad{background:rgba(214,71,58,.18);color:var(--red);}
+.stat{background:var(--panel2);border-radius:8px;padding:14px;text-align:center;}
+.stat .num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:700;}
+.stat .lbl{font-size:12px;color:var(--muted);margin-top:4px;}
+.prodimg{width:54px;height:54px;border-radius:8px;object-fit:cover;background:var(--panel2);}
+.row{display:flex;align-items:center;gap:10px;}
+.tag{font-size:11px;background:var(--panel2);padding:2px 8px;border-radius:5px;color:var(--muted);}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;max-width:480px;width:100%;max-height:90vh;overflow:auto;}
+.bar-bg{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;}
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:80vh;}
+.login-box{background:var(--panel);border:1px solid var(--line);padding:30px;border-radius:12px;width:340px;text-align:center;}
+.smallmuted{color:var(--muted);font-size:12px;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;}
+.done-strip{background:rgba(45,157,111,.1);border-inline-start:4px solid var(--green);}
+.pending-strip{border-inline-start:4px solid var(--yellow);}
+hr.sep{border:none;border-top:1px solid var(--line);margin:14px 0;}
+.empty{text-align:center;padding:40px 0;color:var(--muted);}
+.toast{position:fixed;bottom:20px;inset-inline-end:20px;background:var(--green);color:#fff;padding:12px 18px;border-radius:8px;font-weight:600;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.3);}
+.toast.err{background:var(--red);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ====================== i18n ====================== */
+const I18N = {
+ar:{dir:'rtl',
+ title:'نظام المصنع', dashboard:'الرئيسية', products:'المنتجات', inventory:'المخزون', program:'البرنامج اليومي', history:'السجل', stats:'التحليلات', admin:'الإشراف',
+ role_admin:'مدير', role_worker:'عامل', login:'دخول', logout:'خروج', password:'كلمة المرور', wrong_pass:'كلمة المرور غلط',
+ add_product:'إضافة منتج', company:'الشركة', type:'نوع المنتج', liter:'الحجم (لتر)', code:'كود المنتج', barcode:'باركود', image:'صورة المنتج', save:'حفظ', cancel:'إلغاء', edit:'تعديل', delete:'حذف',
+ tickets_front:'تيكتا أمامية / بانكاله', tickets_back:'تيكتا خلفية / بانكاله', caps_per:'غطا / بانكاله', jerricans_per:'جراكن / بانكاله',
+ cap_size:'مقاس الغطا', jerrican_box:'جركن لكل كرتونة', bancale_per_box:'بانكاله لكل كرتونة',
+ current_stock:'المخزون الحالي', tickets:'تيكتا', caps:'غطا', jerricans:'جراكن', bancale_equiv:'يعادل (بانكاله)',
+ add_stock:'إضافة كمية', qty:'الكمية', reason:'السبب', confirm:'تأكيد',
+ low_stock_warning:'تحذير: المخزون أقل من 5 بانكاله', no_products:'لا يوجد منتجات بعد',
+ today_program:'برنامج اليوم', add_program:'إضافة برنامج', target_bancale:'الهدف (بانكاله)', mark_done:'تم الإنتاج ✓', enter_code:'ادخل كود المنتج للتأكيد', code_mismatch:'الكود غير مطابق',
+ carry_over:'ترحيل الناقص لليوم التالي', done:'تم', pending:'لم يتم', date:'التاريخ', new_program_for_date:'إضافة برنامج بتاريخ',
+ undo:'تراجع', undo_confirm:'لتأكيد التراجع ادخل كود المنتج', deduction_log:'سجل الحركات', no_log:'لا يوجد حركات',
+ stats_title:'تحليلات الإنتاج', today:'اليوم', this_month:'هذا الشهر', top_company:'الأكثر استخدامًا', least_company:'الأقل استخدامًا',
+ total_produced_bancale:'إجمالي البانكاله المُنتجة', settings:'إعدادات الهادر', waste_ticket:'هادر التيكتا %', waste_cap:'هادر الغطا %', waste_jerrican:'هادر الجراكن %', low_stock_threshold:'حد التحذير (بانكاله)',
+ users_note:'العمال يشاهدون البرنامج ويأكدون الإنتاج فقط. المدير يضيف المنتجات والبرامج ويتحكم بالمخزون.',
+ front:'أمام', back:'خلف', actions:'إجراءات', search:'بحث...', all_companies:'كل الشركات',
+ close:'إغلاق', success_added:'تمت الإضافة', success_done:'تم تسجيل الإنتاج وخصم المخزون', success_undo:'تم التراجع', deleted:'تم الحذف',
+ no_program_today:'لا يوجد برنامج لهذا اليوم', stock_ok:'كافي', stock_low:'منخفض', stock_critical:'حرج',
+ logged_by:'بواسطة', at:'في', action_produce:'إنتاج', action_restock:'إضافة مخزون', action_undo:'تراجع', action_carry:'ترحيل',
+ program_for:'برنامج يوم', total_target:'الهدف الكلي', total_done:'تم إنتاجه',
+ image_url:'رابط الصورة (اختياري)', no_image:'بدون صورة',
+ select_product:'اختر منتج', confirm_delete:'تأكيد الحذف؟', yes:'نعم', no_:'لا',
+ month_chart:'الإنتاج الشهري', per_company:'حسب الشركة', no_data:'لا توجد بيانات كافية',
+},
+it:{dir:'ltr',
+ title:'Sistema Fabbrica', dashboard:'Pannello', products:'Prodotti', inventory:'Magazzino', program:'Programma Giorno', history:'Storico', stats:'Statistiche', admin:'Supervisione',
+ role_admin:'Responsabile', role_worker:'Operaio', login:'Accedi', logout:'Esci', password:'Password', wrong_pass:'Password errata',
+ add_product:'Aggiungi prodotto', company:'Azienda', type:'Tipo prodotto', liter:'Litri', code:'Codice prodotto', barcode:'Codice a barre', image:'Immagine', save:'Salva', cancel:'Annulla', edit:'Modifica', delete:'Elimina',
+ tickets_front:'Etichette fronte / bancale', tickets_back:'Etichette retro / bancale', caps_per:'Tappi / bancale', jerricans_per:'Tanica / bancale',
+ cap_size:'Misura tappo', jerrican_box:'Tanica per scatola', bancale_per_box:'Bancale per scatola',
+ current_stock:'Stock attuale', tickets:'Etichette', caps:'Tappi', jerricans:'Tanica', bancale_equiv:'Equivalente (bancale)',
+ add_stock:'Aggiungi quantità', qty:'Quantità', reason:'Motivo', confirm:'Conferma',
+ low_stock_warning:'Attenzione: scorte sotto 5 bancale', no_products:'Nessun prodotto ancora',
+ today_program:'Programma di oggi', add_program:'Aggiungi programma', target_bancale:'Obiettivo (bancale)', mark_done:'Produzione fatta ✓', enter_code:'Inserisci codice prodotto per confermare', code_mismatch:'Codice non corrispondente',
+ carry_over:'Riporta al giorno dopo', done:'Fatto', pending:'In sospeso', date:'Data', new_program_for_date:'Nuovo programma per data',
+ undo:'Annulla', undo_confirm:'Inserisci codice prodotto per annullare', deduction_log:'Registro movimenti', no_log:'Nessun movimento',
+ stats_title:'Statistiche produzione', today:'Oggi', this_month:'Questo mese', top_company:'Più usato', least_company:'Meno usato',
+ total_produced_bancale:'Totale bancale prodotti', settings:'Impostazioni scarto', waste_ticket:'Scarto etichette %', waste_cap:'Scarto tappi %', waste_jerrican:'Scarto tanica %', low_stock_threshold:'Soglia avviso (bancale)',
+ users_note:"Gli operai vedono il programma e confermano la produzione. Il responsabile gestisce prodotti, programmi e magazzino.",
+ front:'Fronte', back:'Retro', actions:'Azioni', search:'Cerca...', all_companies:'Tutte le aziende',
+ close:'Chiudi', success_added:'Aggiunto', success_done:'Produzione registrata e stock aggiornato', success_undo:'Annullato', deleted:'Eliminato',
+ no_program_today:'Nessun programma per oggi', stock_ok:'OK', stock_low:'Basso', stock_critical:'Critico',
+ logged_by:'da', at:'alle', action_produce:'Produzione', action_restock:'Carico magazzino', action_undo:'Annullamento', action_carry:'Riporto',
+ program_for:'Programma del', total_target:'Obiettivo totale', total_done:'Prodotto',
+ image_url:'URL immagine (opzionale)', no_image:'Nessuna immagine',
+ select_product:'Seleziona prodotto', confirm_delete:'Confermi eliminazione?', yes:'Sì', no_:'No',
+ month_chart:'Produzione mensile', per_company:'Per azienda', no_data:'Dati insufficienti',
+},
+en:{dir:'ltr',
+ title:'Factory System', dashboard:'Dashboard', products:'Products', inventory:'Inventory', program:'Daily Program', history:'History', stats:'Stats', admin:'Admin',
+ role_admin:'Manager', role_worker:'Worker', login:'Login', logout:'Logout', password:'Password', wrong_pass:'Wrong password',
+ add_product:'Add product', company:'Company', type:'Product type', liter:'Liters', code:'Product code', barcode:'Barcode', image:'Image', save:'Save', cancel:'Cancel', edit:'Edit', delete:'Delete',
+ tickets_front:'Front labels / bancale', tickets_back:'Back labels / bancale', caps_per:'Caps / bancale', jerricans_per:'Jerricans / bancale',
+ cap_size:'Cap size', jerrican_box:'Jerricans per box', bancale_per_box:'Bancale per box',
+ current_stock:'Current stock', tickets:'Labels', caps:'Caps', jerricans:'Jerricans', bancale_equiv:'Equivalent (bancale)',
+ add_stock:'Add quantity', qty:'Quantity', reason:'Reason', confirm:'Confirm',
+ low_stock_warning:'Warning: stock below 5 bancale', no_products:'No products yet',
+ today_program:"Today's program", add_program:'Add program', target_bancale:'Target (bancale)', mark_done:'Production done ✓', enter_code:'Enter product code to confirm', code_mismatch:'Code does not match',
+ carry_over:'Carry over to next day', done:'Done', pending:'Pending', date:'Date', new_program_for_date:'New program for date',
+ undo:'Undo', undo_confirm:'Enter product code to undo', deduction_log:'Movement log', no_log:'No movements',
+ stats_title:'Production stats', today:'Today', this_month:'This month', top_company:'Most used', least_company:'Least used',
+ total_produced_bancale:'Total bancale produced', settings:'Waste settings', waste_ticket:'Label waste %', waste_cap:'Cap waste %', waste_jerrican:'Jerrican waste %', low_stock_threshold:'Warning threshold (bancale)',
+ users_note:'Workers only see the program and confirm production. The manager handles products, programs and stock.',
+ front:'Front', back:'Back', actions:'Actions', search:'Search...', all_companies:'All companies',
+ close:'Close', success_added:'Added', success_done:'Production logged and stock updated', success_undo:'Undone', deleted:'Deleted',
+ no_program_today:'No program for this day', stock_ok:'OK', stock_low:'Low', stock_critical:'Critical',
+ logged_by:'by', at:'at', action_produce:'Production', action_restock:'Restock', action_undo:'Undo', action_carry:'Carry-over',
+ program_for:'Program for', total_target:'Total target', total_done:'Produced',
+ image_url:'Image URL (optional)', no_image:'No image',
+ select_product:'Select product', confirm_delete:'Confirm delete?', yes:'Yes', no_:'No',
+ month_chart:'Monthly production', per_company:'By company', no_data:'Not enough data',
+},
+es:{dir:'ltr',
+ title:'Sistema de Fábrica', dashboard:'Panel', products:'Productos', inventory:'Almacén', program:'Programa Diario', history:'Historial', stats:'Estadísticas', admin:'Supervisión',
+ role_admin:'Gerente', role_worker:'Operario', login:'Entrar', logout:'Salir', password:'Contraseña', wrong_pass:'Contraseña incorrecta',
+ add_product:'Añadir producto', company:'Empresa', type:'Tipo de producto', liter:'Litros', code:'Código producto', barcode:'Código de barras', image:'Imagen', save:'Guardar', cancel:'Cancelar', edit:'Editar', delete:'Eliminar',
+ tickets_front:'Etiquetas frontal / bancale', tickets_back:'Etiquetas trasera / bancale', caps_per:'Tapas / bancale', jerricans_per:'Bidones / bancale',
+ cap_size:'Tamaño tapa', jerrican_box:'Bidones por caja', bancale_per_box:'Bancale por caja',
+ current_stock:'Stock actual', tickets:'Etiquetas', caps:'Tapas', jerricans:'Bidones', bancale_equiv:'Equivalente (bancale)',
+ add_stock:'Añadir cantidad', qty:'Cantidad', reason:'Motivo', confirm:'Confirmar',
+ low_stock_warning:'Aviso: stock por debajo de 5 bancale', no_products:'Aún no hay productos',
+ today_program:'Programa de hoy', add_program:'Añadir programa', target_bancale:'Objetivo (bancale)', mark_done:'Producción hecha ✓', enter_code:'Introduce el código del producto para confirmar', code_mismatch:'El código no coincide',
+ carry_over:'Trasladar al día siguiente', done:'Hecho', pending:'Pendiente', date:'Fecha', new_program_for_date:'Nuevo programa para fecha',
+ undo:'Deshacer', undo_confirm:'Introduce el código del producto para deshacer', deduction_log:'Registro de movimientos', no_log:'Sin movimientos',
+ stats_title:'Estadísticas de producción', today:'Hoy', this_month:'Este mes', top_company:'Más usado', least_company:'Menos usado',
+ total_produced_bancale:'Total bancale producidos', settings:'Ajustes de merma', waste_ticket:'Merma etiquetas %', waste_cap:'Merma tapas %', waste_jerrican:'Merma bidones %', low_stock_threshold:'Umbral de aviso (bancale)',
+ users_note:'Los operarios solo ven el programa y confirman la producción. El gerente gestiona productos, programas y stock.',
+ front:'Frontal', back:'Trasera', actions:'Acciones', search:'Buscar...', all_companies:'Todas las empresas',
+ close:'Cerrar', success_added:'Añadido', success_done:'Producción registrada y stock actualizado', success_undo:'Deshecho', deleted:'Eliminado',
+ no_program_today:'No hay programa para este día', stock_ok:'Bien', stock_low:'Bajo', stock_critical:'Crítico',
+ logged_by:'por', at:'a las', action_produce:'Producción', action_restock:'Reabastecimiento', action_undo:'Deshacer', action_carry:'Traslado',
+ program_for:'Programa del', total_target:'Objetivo total', total_done:'Producido',
+ image_url:'URL de imagen (opcional)', no_image:'Sin imagen',
+ select_product:'Selecciona producto', confirm_delete:'¿Confirmar eliminación?', yes:'Sí', no_:'No',
+ month_chart:'Producción mensual', per_company:'Por empresa', no_data:'Datos insuficientes',
+}};
+
+/* ====================== STATE ====================== */
+let state = {
+  lang: 'ar',
+  role: null, // 'admin' | 'worker'
+  products: [],
+  programs: {}, // date -> [ {id, programIndex label, items:[{productId, target, doneQty, status}] } ]
+  settings: { wasteTicket:4, wasteCap:2, wasteJerrican:1.8, lowStock:5 },
+  log: [],
+  loaded: false,
+};
+const ADMIN_PASS = 'admin123';
+const todayStr = () => new Date().toISOString().slice(0,10);
+
+function t(k){ return (I18N[state.lang] && I18N[state.lang][k]) || k; }
+
+/* ---------- storage helpers ---------- */
+async function load(){
+  try{ const r = await window.storage.get('products', true); state.products = r? JSON.parse(r.value):[]; }catch(e){ state.products=[]; }
+  try{ const r = await window.storage.get('programs', true); state.programs = r? JSON.parse(r.value):{}; }catch(e){ state.programs={}; }
+  try{ const r = await window.storage.get('settings', true); state.settings = r? JSON.parse(r.value): state.settings; }catch(e){}
+  try{ const r = await window.storage.get('log', true); state.log = r? JSON.parse(r.value):[]; }catch(e){ state.log=[]; }
+  state.loaded = true;
+  render();
+}
+async function saveProducts(){ await window.storage.set('products', JSON.stringify(state.products), true); }
+async function savePrograms(){ await window.storage.set('programs', JSON.stringify(state.programs), true); }
+async function saveSettings(){ await window.storage.set('settings', JSON.stringify(state.settings), true); }
+async function saveLog(){
+  if(state.log.length>800) state.log = state.log.slice(-800);
+  await window.storage.set('log', JSON.stringify(state.log), true);
+}
+function addLog(entry){
+  state.log.push({ ...entry, time: new Date().toISOString() });
+  saveLog();
+}
+
+/* ---------- toast ---------- */
+function toast(msg, err){
+  const d=document.createElement('div');
+  d.className='toast'+(err?' err':'');
+  d.textContent=msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 2600);
+}
+
+/* ====================== calc helpers ====================== */
+function bancaleEquivalent(p, stock){
+  // returns min of (tickets_front/perF, tickets_back/perB, caps/perCap, jerricans/perJ)
+  const f = p.ticketsFront>0 ? stock.ticketsFront/p.ticketsFront : Infinity;
+  const b = p.ticketsBack>0 ? stock.ticketsBack/p.ticketsBack : Infinity;
+  const c = p.capsPer>0 ? stock.caps/p.capsPer : Infinity;
+  const j = p.jerricansPer>0 ? stock.jerricans/p.jerricansPer : Infinity;
+  return Math.min(f,b,c,j);
+}
+function stockStatus(bancale, threshold){
+  if(bancale < threshold) return 'bad';
+  if(bancale < threshold*1.5) return 'warn';
+  return 'ok';
+}
+function getProduct(id){ return state.products.find(p=>p.id===id); }
+
+/* ====================== RENDER ROOT ====================== */
+function render(){
+  const root = document.getElementById('app');
+  document.documentElement.dir = I18N[state.lang].dir;
+  document.body.className = I18N[state.lang].dir==='ltr' ? 'ltr':'';
+  if(!state.loaded){ root.innerHTML = '<div style="padding:40px;text-align:center;color:#8b96a3">Loading...</div>'; return; }
+  if(!state.role){ renderLogin(root); return; }
+  renderApp(root);
+}
+
+/* ====================== LOGIN ====================== */
+function renderLogin(root){
+  root.innerHTML = `
+  <div class="hazard"></div>
+  <header>
+    <div class="logo"><div class="dot"></div>${t('title')}</div>
+    <div class="spacer"></div>
+    ${langSelectHTML()}
+  </header>
+  <div class="login-wrap">
+    <div class="login-box">
+      <h2>${t('title')}</h2>
+      <p class="smallmuted">${t('users_note')}</p>
+      <hr class="sep">
+      <button style="width:100%;margin-bottom:10px" id="btnWorker">${t('role_worker')}</button>
+      <div class="field" style="margin-top:14px">
+        <label>${t('password')} (${t('role_admin')})</label>
+        <input type="password" id="adminPass" placeholder="••••••">
+      </div>
+      <button class="primary" style="width:100%" id="btnAdmin">${t('role_admin')} ${t('login')}</button>
+      <div id="loginErr" style="color:#d6473a;font-size:13px;margin-top:8px"></div>
+    </div>
+  </div>`;
+  bindLangSelect();
+  document.getElementById('btnWorker').onclick = ()=>{ state.role='worker'; state.tab='dashboard'; render(); };
+  document.getElementById('btnAdmin').onclick = ()=>{
+    const v = document.getElementById('adminPass').value;
+    if(v===ADMIN_PASS){ state.role='admin'; state.tab='dashboard'; render(); }
+    else document.getElementById('loginErr').textContent = t('wrong_pass');
+  };
+}
+function langSelectHTML(){
+  return `<select id="langSel">
+    <option value="ar" ${state.lang==='ar'?'selected':''}>العربية</option>
+    <option value="it" ${state.lang==='it'?'selected':''}>Italiano</option>
+    <option value="en" ${state.lang==='en'?'selected':''}>English</option>
+    <option value="es" ${state.lang==='es'?'selected':''}>Español</option>
+  </select>`;
+}
+function bindLangSelect(){
+  document.getElementById('langSel').onchange = (e)=>{ state.lang = e.target.value; render(); };
+}
+
+/* ====================== APP SHELL ====================== */
+function renderApp(root){
+  if(!state.tab) state.tab='dashboard';
+  const tabs = state.role==='admin'
+    ? ['dashboard','products','inventory','program','history','stats','admin']
+    : ['dashboard','products','inventory','program','history'];
+  root.innerHTML = `
+  <div class="hazard"></div>
+  <header>
+    <div class="logo"><div class="dot"></div>${t('title')}</div>
+    <div class="spacer"></div>
+    <span class="tag">${state.role==='admin'?t('role_admin'):t('role_worker')}</span>
+    ${langSelectHTML()}
+    <button id="btnLogout">${t('logout')}</button>
+  </header>
+  <nav>${tabs.map(tb=>`<button data-tab="${tb}" class="${state.tab===tb?'active':''}">${t(tb)}</button>`).join('')}</nav>
+  <main id="main"></main>
+  `;
+  bindLangSelect();
+  document.getElementById('btnLogout').onclick = ()=>{ state.role=null; render(); };
+  root.querySelectorAll('nav button').forEach(b=> b.onclick = ()=>{ state.tab=b.dataset.tab; render(); });
+  const main = document.getElementById('main');
+  if(state.tab==='dashboard') renderDashboard(main);
+  else if(state.tab==='products') renderProducts(main);
+  else if(state.tab==='inventory') renderInventory(main);
+  else if(state.tab==='program') renderProgram(main);
+  else if(state.tab==='history') renderHistory(main);
+  else if(state.tab==='stats') renderStats(main);
+  else if(state.tab==='admin') renderAdmin(main);
+}
+
+/* ====================== DASHBOARD ====================== */
+function renderDashboard(main){
+  const low = state.products.filter(p=>{
+    const be = bancaleEquivalent(p, p.stock);
+    return be < state.settings.lowStock;
+  });
+  const today = todayStr();
+  const progs = state.programs[today] || [];
+  let totalTarget=0, totalDone=0;
+  progs.forEach(pr=> pr.items.forEach(it=>{ totalTarget+=Number(it.target)||0; if(it.status==='done') totalDone+=Number(it.target)||0; }));
+
+  main.innerHTML = `
+  <div class="grid cols-4">
+    <div class="stat"><div class="num">${state.products.length}</div><div class="lbl">${t('products')}</div></div>
+    <div class="stat"><div class="num">${totalTarget}</div><div class="lbl">${t('total_target')} (${t('today')})</div></div>
+    <div class="stat"><div class="num">${totalDone}</div><div class="lbl">${t('total_done')}</div></div>
+    <div class="stat"><div class="num" style="color:${low.length?'#d6473a':'#2d9d6f'}">${low.length}</div><div class="lbl">${t('low_stock_warning')}</div></div>
+  </div>
+  ${low.length? `<div class="card" style="border-color:#d6473a">
+    <h3 style="color:#d6473a">⚠ ${t('low_stock_warning')}</h3>
+    <table><thead><tr><th>${t('products')}</th><th>${t('company')}</th><th>${t('bancale_equiv')}</th></tr></thead><tbody>
+    ${low.map(p=>`<tr><td>${p.name||p.code}</td><td>${p.company}</td><td class="mono">${bancaleEquivalent(p,p.stock).toFixed(1)}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+  <div class="card">
+    <h3>${t('today_program')}</h3>
+    ${progs.length===0? `<div class="empty">${t('no_program_today')}</div>` :
+      progs.map((pr,pi)=>renderProgramSummary(pr)).join('')}
+  </div>
+  `;
+}
+function renderProgramSummary(pr){
+  return `<div style="margin-bottom:10px">
+    <div class="smallmuted">${pr.label||''}</div>
+    <table><tbody>
+    ${pr.items.map(it=>{
+      const p=getProduct(it.productId);
+      return `<tr class="${it.status==='done'?'done-strip':'pending-strip'}">
+      <td>${p?p.name:'?'}</td><td class="mono">${it.target} ${t('program').includes('Program')?'':''}</td>
+      <td>${it.status==='done'?`<span class="badge ok">${t('done')}</span>`:`<span class="badge warn">${t('pending')}</span>`}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+/* ====================== PRODUCTS ====================== */
+function renderProducts(main){
+  main.innerHTML = `
+  <div class="flex-between" style="margin-bottom:14px">
+    <input id="searchP" placeholder="${t('search')}" style="max-width:260px">
+    ${state.role==='admin'? `<button class="primary" id="addProdBtn">+ ${t('add_product')}</button>`:''}
+  </div>
+  <div id="prodList" class="grid cols-3"></div>
+  `;
+  function draw(filter){
+    const list = state.products.filter(p=> !filter || (p.name+p.company+p.code).toLowerCase().includes(filter.toLowerCase()));
+    const wrap = document.getElementById('prodList');
+    wrap.innerHTML = list.length? list.map(p=>{
+      const be = bancaleEquivalent(p,p.stock);
+      const st = stockStatus(be, state.settings.lowStock);
+      return `<div class="card">
+      <div class="row">
+        ${p.image? `<img src="${p.image}" class="prodimg">` : `<div class="prodimg row" style="align-items:center;justify-content:center;color:#8b96a3;font-size:11px">${t('no_image')}</div>`}
+        <div>
+          <div style="font-weight:700">${p.name}</div>
+          <div class="smallmuted">${p.company} · ${p.type} · ${p.liter}L</div>
+        </div>
+      </div>
+      <hr class="sep">
+      <div class="smallmuted mono">${t('code')}: ${p.code} | ${t('barcode')}: ${p.barcode||'-'}</div>
+      <div style="margin-top:8px" class="row">
+        <span class="badge ${st}">${be.toFixed(1)} ${t('bancale_equiv')}</span>
+      </div>
+      ${state.role==='admin'? `<div class="row" style="margin-top:10px">
+        <button data-edit="${p.id}">${t('edit')}</button>
+        <button class="danger" data-del="${p.id}">${t('delete')}</button>
+      </div>`:''}
+      </div>`;
+    }).join('') : `<div class="empty">${t('no_products')}</div>`;
+    wrap.querySelectorAll('[data-edit]').forEach(b=> b.onclick=()=> openProductModal(getProduct(b.dataset.edit)));
+    wrap.querySelectorAll('[data-del]').forEach(b=> b.onclick=()=>{
+      if(confirm(t('confirm_delete'))){
+        state.products = state.products.filter(p=>p.id!==b.dataset.del);
+        saveProducts(); addLog({type:'delete_product', detail:b.dataset.del}); render();
+      }
+    });
+  }
+  draw('');
+  document.getElementById('searchP').oninput = e=> draw(e.target.value);
+  if(state.role==='admin') document.getElementById('addProdBtn').onclick = ()=> openProductModal(null);
+}
+
+function openProductModal(existing){
+  const id = existing? existing.id : 'p'+Date.now();
+  const m = document.createElement('div');
+  m.className='modal-bg';
+  m.innerHTML = `<div class="modal">
+    <h3>${existing? t('edit'): t('add_product')}</h3>
+    <div class="grid cols-2">
+      <div class="field"><label>${t('company')}</label><input id="f_company" value="${existing?existing.company:''}"></div>
+      <div class="field"><label>${t('type')}</label><input id="f_type" value="${existing?existing.type:''}"></div>
+      <div class="field"><label>${t('liter')}</label><input id="f_liter" type="number" value="${existing?existing.liter:5}"></div>
+      <div class="field"><label>${t('code')}</label><input id="f_code" value="${existing?existing.code:''}"></div>
+      <div class="field"><label>${t('barcode')}</label><input id="f_barcode" value="${existing?existing.barcode:''}"></div>
+      <div class="field"><label>${t('cap_size')}</label><input id="f_capsize" value="${existing?existing.capSize:''}" placeholder="5L / 10L"></div>
+    </div>
+    <div class="field"><label>${t('image_url')}</label><input id="f_image" value="${existing?existing.image||'':''}"></div>
+    <hr class="sep">
+    <div class="grid cols-4">
+      <div class="field"><label>${t('tickets_front')}</label><input id="f_tf" type="number" value="${existing?existing.ticketsFront:90}"></div>
+      <div class="field"><label>${t('tickets_back')}</label><input id="f_tb" type="number" value="${existing?existing.ticketsBack:90}"></div>
+      <div class="field"><label>${t('caps_per')}</label><input id="f_caps" type="number" value="${existing?existing.capsPer:128}"></div>
+      <div class="field"><label>${t('jerricans_per')}</label><input id="f_jer" type="number" value="${existing?existing.jerricansPer:128}"></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button id="modalCancel">${t('cancel')}</button>
+      <button class="primary" id="modalSave">${t('save')}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  document.getElementById('modalCancel').onclick = ()=> m.remove();
+  document.getElementById('modalSave').onclick = ()=>{
+    const company = document.getElementById('f_company').value.trim();
+    const code = document.getElementById('f_code').value.trim();
+    if(!company || !code){ toast(t('company')+' / '+t('code')+' required', true); return; }
+    const prod = {
+      id, company, type: document.getElementById('f_type').value.trim(),
+      liter: Number(document.getElementById('f_liter').value)||0,
+      code, barcode: document.getElementById('f_barcode').value.trim(),
+      capSize: document.getElementById('f_capsize').value.trim(),
+      image: document.getElementById('f_image').value.trim(),
+      ticketsFront: Number(document.getElementById('f_tf').value)||0,
+      ticketsBack: Number(document.getElementById('f_tb').value)||0,
+      capsPer: Number(document.getElementById('f_caps').value)||0,
+      jerricansPer: Number(document.getElementById('f_jer').value)||0,
+      name: company+' - '+document.getElementById('f_type').value.trim(),
+      stock: existing? existing.stock : { ticketsFront:0, ticketsBack:0, caps:0, jerricans:0 }
+    };
+    if(existing){
+      const idx = state.products.findIndex(p=>p.id===id);
+      state.products[idx] = prod;
+    } else {
+      state.products.push(prod);
+    }
+    saveProducts();
+    addLog({type:'product_saved', product:prod.code});
+    toast(t('success_added'));
+    m.remove(); render();
+  };
+}
+
+/* ====================== INVENTORY ====================== */
+function renderInventory(main){
+  main.innerHTML = `<div id="invList" class="grid cols-2"></div>`;
+  const wrap = document.getElementById('invList');
+  if(state.products.length===0){ wrap.innerHTML = `<div class="empty">${t('no_products')}</div>`; return; }
+  wrap.innerHTML = state.products.map(p=>{
+    const be = bancaleEquivalent(p,p.stock);
+    const st = stockStatus(be, state.settings.lowStock);
+    const pct = Math.min(100, (be/(state.settings.lowStock*3))*100);
+    const color = st==='ok'?'#2d9d6f':st==='warn'?'#e85d04':'#d6473a';
+    return `<div class="card">
+      <div class="flex-between"><h3 style="margin:0">${p.name}</h3><span class="badge ${st}">${be.toFixed(1)} ${t('bancale_equiv')}</span></div>
+      <div class="bar-bg" style="margin:8px 0"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <table><tbody>
+        <tr><td>${t('tickets_front')}</td><td class="mono">${p.stock.ticketsFront}</td></tr>
+        <tr><td>${t('tickets_back')}</td><td class="mono">${p.stock.ticketsBack}</td></tr>
+        <tr><td>${t('caps')}</td><td class="mono">${p.stock.caps}</td></tr>
+        <tr><td>${t('jerricans')}</td><td class="mono">${p.stock.jerricans}</td></tr>
+      </tbody></table>
+      ${state.role==='admin'? `<button style="margin-top:10px" data-stock="${p.id}">+ ${t('add_stock')}</button>`:''}
+    </div>`;
+  }).join('');
+  if(state.role==='admin') wrap.querySelectorAll('[data-stock]').forEach(b=> b.onclick=()=> openStockModal(getProduct(b.dataset.stock)));
+}
+function openStockModal(p){
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML=`<div class="modal">
+    <h3>${t('add_stock')} — ${p.name}</h3>
+    <div class="grid cols-2">
+      <div class="field"><label>${t('tickets_front')}</label><input id="s_tf" type="number" value="0"></div>
+      <div class="field"><label>${t('tickets_back')}</label><input id="s_tb" type="number" value="0"></div>
+      <div class="field"><label>${t('caps')}</label><input id="s_caps" type="number" value="0"></div>
+      <div class="field"><label>${t('jerricans')}</label><input id="s_jer" type="number" value="0"></div>
+    </div>
+    <div class="field"><label>${t('reason')}</label><input id="s_reason" placeholder="${t('reason')}"></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button id="cnl">${t('cancel')}</button>
+      <button class="primary" id="cfm">${t('confirm')}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  document.getElementById('cnl').onclick=()=>m.remove();
+  document.getElementById('cfm').onclick=()=>{
+    const add = {
+      ticketsFront: Number(document.getElementById('s_tf').value)||0,
+      ticketsBack: Number(document.getElementById('s_tb').value)||0,
+      caps: Number(document.getElementById('s_caps').value)||0,
+      jerricans: Number(document.getElementById('s_jer').value)||0,
+    };
+    p.stock.ticketsFront += add.ticketsFront;
+    p.stock.ticketsBack += add.ticketsBack;
+    p.stock.caps += add.caps;
+    p.stock.jerricans += add.jerricans;
+    saveProducts();
+    addLog({type:'restock', product:p.code, add, reason: document.getElementById('s_reason').value, by: state.role});
+    toast(t('success_added'));
+    m.remove(); render();
+  };
+}
+
+/* ====================== PROGRAM ====================== */
+function renderProgram(main){
+  if(!state.progDate) state.progDate = todayStr();
+  const date = state.progDate;
+  const progs = state.programs[date] || [];
+  main.innerHTML = `
+  <div class="card">
+    <div class="row" style="flex-wrap:wrap">
+      <label style="margin:0">${t('date')}</label>
+      <input type="date" id="dateSel" value="${date}" style="max-width:180px">
+      ${state.role==='admin'? `<button class="primary" id="addProgBtn">+ ${t('add_program')}</button>`:''}
+    </div>
+  </div>
+  <div id="progArea"></div>
+  `;
+  document.getElementById('dateSel').onchange = e=>{ state.progDate=e.target.value; renderProgram(main); };
+  if(state.role==='admin') document.getElementById('addProgBtn').onclick = ()=> openAddProgramModal(date, ()=>renderProgram(main));
+
+  const area = document.getElementById('progArea');
+  if(progs.length===0){ area.innerHTML = `<div class="empty">${t('no_program_today')}</div>`; return; }
+  area.innerHTML = progs.map((pr,pi)=>{
+    const allDone = pr.items.every(i=>i.status==='done');
+    return `<div class="card">
+    <div class="flex-between"><h3>${pr.label||(t('program_for')+' '+date)}</h3>${allDone?`<span class="badge ok">${t('done')}</span>`:''}</div>
+    <table><thead><tr><th>${t('products')}</th><th>${t('target_bancale')}</th><th>${t('actions')}</th></tr></thead>
+    <tbody>
+    ${pr.items.map((it,ii)=>{
+      const p = getProduct(it.productId);
+      return `<tr class="${it.status==='done'?'done-strip':'pending-strip'}">
+        <td>${p? p.name : '?'}</td>
+        <td class="mono">${it.target}</td>
+        <td>
+        ${it.status==='done'
+          ? (state.role==='admin'? `<button data-undo="${pi}:${ii}">${t('undo')}</button>` : `<span class="badge ok">${t('done')}</span>`)
+          : `<button class="primary" data-done="${pi}:${ii}">${t('mark_done')}</button>`}
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>
+    ${(!allDone && state.role==='admin')? `<button style="margin-top:10px" data-carry="${pi}">${t('carry_over')}</button>`:''}
+    </div>`;
+  }).join('');
+  area.querySelectorAll('[data-done]').forEach(b=> b.onclick=()=>{
+    const [pi,ii]=b.dataset.done.split(':').map(Number);
+    openConfirmCodeModal(progs[pi].items[ii], 'done', date, pi, ii);
+  });
+  area.querySelectorAll('[data-undo]').forEach(b=> b.onclick=()=>{
+    const [pi,ii]=b.dataset.undo.split(':').map(Number);
+    openConfirmCodeModal(progs[pi].items[ii], 'undo', date, pi, ii);
+  });
+  area.querySelectorAll('[data-carry]').forEach(b=>{
+    b.onclick = ()=>{
+      const pi = Number(b.dataset.carry);
+      const pr = progs[pi];
+      const pending = pr.items.filter(i=>i.status!=='done');
+      if(pending.length===0) return;
+      const next = new Date(date); next.setDate(next.getDate()+1);
+      const nextStr = next.toISOString().slice(0,10);
+      if(!state.programs[nextStr]) state.programs[nextStr]=[];
+      state.programs[nextStr].push({ id:'pr'+Date.now(), label: pr.label, items: pending.map(i=>({productId:i.productId,target:i.target,status:'pending'})) });
+      savePrograms();
+      addLog({type:'carry_over', from:date, to:nextStr, count:pending.length, by:state.role});
+      toast(t('success_added'));
+      renderProgram(main);
+    };
+  });
+}
+
+function openAddProgramModal(date, cb){
+  const m=document.createElement('div'); m.className='modal-bg';
+  let rows=[];
+  function rowHTML(i){
+    return `<div class="row" data-row="${i}" style="margin-bottom:6px">
+      <select class="rowProd" style="flex:2">${state.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+      <input class="rowTarget" type="number" placeholder="${t('target_bancale')}" style="flex:1">
+      <button class="ghost rowDel">✕</button>
+    </div>`;
+  }
+  m.innerHTML = `<div class="modal">
+    <h3>${t('add_program')} — ${date}</h3>
+    <div class="field"><label>${t('today_program')} label</label><input id="progLabel" placeholder="Turno 1 / برنامج 1"></div>
+    <div id="rows">${rowHTML(0)}</div>
+    <button id="addRow" style="margin-top:6px">+ ${t('select_product')}</button>
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button id="cnl">${t('cancel')}</button>
+      <button class="primary" id="cfm">${t('save')}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  let n=1;
+  document.getElementById('addRow').onclick=()=>{
+    document.getElementById('rows').insertAdjacentHTML('beforeend', rowHTML(n)); n++;
+  };
+  document.getElementById('cnl').onclick=()=>m.remove();
+  document.getElementById('cfm').onclick=()=>{
+    const items=[];
+    m.querySelectorAll('[data-row]').forEach(r=>{
+      const pid = r.querySelector('.rowProd').value;
+      const target = Number(r.querySelector('.rowTarget').value);
+      if(pid && target>0) items.push({productId:pid, target, status:'pending'});
+    });
+    if(items.length===0){ toast('—', true); return; }
+    if(!state.programs[date]) state.programs[date]=[];
+    state.programs[date].push({ id:'pr'+Date.now(), label: document.getElementById('progLabel').value, items });
+    savePrograms();
+    addLog({type:'program_added', date, count:items.length, by:state.role});
+    toast(t('success_added'));
+    m.remove(); cb();
+  };
+}
+
+function openConfirmCodeModal(item, action, date, pi, ii){
+  const p = getProduct(item.productId);
+  const m=document.createElement('div'); m.className='modal-bg';
+  m.innerHTML = `<div class="modal">
+    <h3>${action==='done'? t('enter_code') : t('undo_confirm')}</h3>
+    <p>${p.name}</p>
+    <input id="codeInput" placeholder="${t('code')}">
+    <div class="row" style="justify-content:flex-end;margin-top:14px">
+      <button id="cnl">${t('cancel')}</button>
+      <button class="primary" id="cfm">${t('confirm')}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  document.getElementById('cnl').onclick=()=>m.remove();
+  document.getElementById('cfm').onclick=()=>{
+    const code = document.getElementById('codeInput').value.trim();
+    if(code !== p.code){ toast(t('code_mismatch'), true); return; }
+    const s = state.settings;
+    const target = Number(item.target);
+    const needF = target * p.ticketsFront * (1+s.wasteTicket/100);
+    const needB = target * p.ticketsBack * (1+s.wasteTicket/100);
+    const needCaps = target * p.capsPer * (1+s.wasteCap/100);
+    const needJer = target * p.jerricansPer * (1+s.wasteJerrican/100);
+    if(action==='done'){
+      p.stock.ticketsFront -= needF;
+      p.stock.ticketsBack -= needB;
+      p.stock.caps -= needCaps;
+      p.stock.jerricans -= needJer;
+      item.status='done';
+      addLog({type:'produce', product:p.code, target, date, by:state.role});
+      toast(t('success_done'));
+    } else {
+      p.stock.ticketsFront += needF;
+      p.stock.ticketsBack += needB;
+      p.stock.caps += needCaps;
+      p.stock.jerricans += needJer;
+      item.status='pending';
+      addLog({type:'undo', product:p.code, target, date, by:state.role});
+      toast(t('success_undo'));
+    }
+    saveProducts(); savePrograms();
+    m.remove(); render();
+  };
+}
+
+/* ====================== HISTORY ====================== */
+function renderHistory(main){
+  const dates = Object.keys(state.programs).sort().reverse();
+  main.innerHTML = `
+  <div class="card"><h3>${t('history')}</h3>
+  ${dates.length===0? `<div class="empty">${t('no_program_today')}</div>` :
+    dates.map(d=>{
+      const progs = state.programs[d];
+      let target=0,done=0;
+      progs.forEach(pr=>pr.items.forEach(i=>{target+=Number(i.target); if(i.status==='done') done+=Number(i.target);}));
+      return `<div style="margin-bottom:12px">
+        <div class="flex-between"><strong>${d}</strong><span class="badge ${done>=target?'ok':'warn'}">${done}/${target} ${t('bancale_equiv')}</span></div>
+        <table><tbody>${progs.map(pr=>pr.items.map(it=>{
+          const p=getProduct(it.productId);
+          return `<tr><td>${pr.label||''}</td><td>${p?p.name:'?'}</td><td class="mono">${it.target}</td><td>${it.status==='done'?`<span class="badge ok">${t('done')}</span>`:`<span class="badge warn">${t('pending')}</span>`}</td></tr>`;
+        }).join('')).join('')}</tbody></table>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="card"><h3>${t('deduction_log')}</h3>
+  ${state.log.length===0? `<div class="empty">${t('no_log')}</div>` :
+    `<table><tbody>${state.log.slice().reverse().slice(0,150).map(l=>`
+      <tr><td class="smallmuted">${new Date(l.time).toLocaleString()}</td><td>${t('action_'+l.type)||l.type}</td><td class="mono">${l.product||''}</td><td class="smallmuted">${t('logged_by')}: ${l.by||''}</td></tr>
+    `).join('')}</tbody></table>`}
+  </div>
+  `;
+}
+
+/* ====================== STATS ====================== */
+function renderStats(main){
+  const month = todayStr().slice(0,7);
+  const today = todayStr();
+  function aggregate(predicate){
+    const byCompany = {};
+    let total=0;
+    Object.entries(state.programs).forEach(([d, progs])=>{
+      if(!predicate(d)) return;
+      progs.forEach(pr=>pr.items.forEach(it=>{
+        if(it.status!=='done') return;
+        const p=getProduct(it.productId); if(!p) return;
+        byCompany[p.company]=(byCompany[p.company]||0)+Number(it.target);
+        total+=Number(it.target);
+      }));
+    });
+    return {byCompany, total};
+  }
+  const dayAgg = aggregate(d=>d===today);
+  const monthAgg = aggregate(d=>d.startsWith(month));
+  function topLeast(byCompany){
+    const arr = Object.entries(byCompany).sort((a,b)=>b[1]-a[1]);
+    return { top: arr[0], least: arr[arr.length-1] };
+  }
+  const monthTL = topLeast(monthAgg.byCompany);
+  main.innerHTML = `
+  <div class="grid cols-2">
+    <div class="card"><h3>${t('today')}</h3>
+      <div class="stat" style="margin-bottom:10px"><div class="num">${dayAgg.total}</div><div class="lbl">${t('total_produced_bancale')}</div></div>
+      ${companyBars(dayAgg.byCompany)}
+    </div>
+    <div class="card"><h3>${t('this_month')}</h3>
+      <div class="stat" style="margin-bottom:10px"><div class="num">${monthAgg.total}</div><div class="lbl">${t('total_produced_bancale')}</div></div>
+      ${monthTL.top? `<div class="smallmuted">${t('top_company')}: <strong>${monthTL.top[0]}</strong> (${monthTL.top[1]})</div>`:''}
+      ${monthTL.least? `<div class="smallmuted">${t('least_company')}: <strong>${monthTL.least[0]}</strong> (${monthTL.least[1]})</div>`:''}
+      ${companyBars(monthAgg.byCompany)}
+    </div>
+  </div>
+  `;
+}
+function companyBars(byCompany){
+  const entries = Object.entries(byCompany).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0) return `<div class="empty">${t('no_data')}</div>`;
+  const max = entries[0][1];
+  return `<div style="margin-top:10px">${entries.map(([c,v])=>`
+    <div style="margin-bottom:8px">
+      <div class="flex-between smallmuted"><span>${c}</span><span class="mono">${v}</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${(v/max*100)}%;background:#f2b705"></div></div>
+    </div>`).join('')}</div>`;
+}
+
+/* ====================== ADMIN SETTINGS ====================== */
+function renderAdmin(main){
+  const s = state.settings;
+  main.innerHTML = `
+  <div class="card"><h3>${t('settings')}</h3>
+    <div class="grid cols-4">
+      <div class="field"><label>${t('waste_ticket')}</label><input id="a_wt" type="number" step="0.1" value="${s.wasteTicket}"></div>
+      <div class="field"><label>${t('waste_cap')}</label><input id="a_wc" type="number" step="0.1" value="${s.wasteCap}"></div>
+      <div class="field"><label>${t('waste_jerrican')}</label><input id="a_wj" type="number" step="0.1" value="${s.wasteJerrican}"></div>
+      <div class="field"><label>${t('low_stock_threshold')}</label><input id="a_low" type="number" value="${s.lowStock}"></div>
+    </div>
+    <button class="primary" id="saveSettings">${t('save')}</button>
+  </div>
+  `;
+  document.getElementById('saveSettings').onclick = ()=>{
+    state.settings = {
+      wasteTicket: Number(document.getElementById('a_wt').value)||0,
+      wasteCap: Number(document.getElementById('a_wc').value)||0,
+      wasteJerrican: Number(document.getElementById('a_wj').value)||0,
+      lowStock: Number(document.getElementById('a_low').value)||5,
+    };
+    saveSettings(); addLog({type:'product_saved', detail:'settings updated', by:state.role}); toast(t('success_added')); render();
+  };
+}
+
+/* ====================== INIT ====================== */
+load();
+</script>
+</body>
+</html>
