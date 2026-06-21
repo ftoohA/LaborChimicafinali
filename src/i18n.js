@@ -1,4 +1,4 @@
-export const ADMIN_PASS  = 'admin123';
+export const ADMIN_PASS  = '123123';
 export const WORKER_PASS = '';
 export const PROG_TYPES = ['daily', 'location', 'brazer', 'amazon', 'macro'];
 
@@ -61,6 +61,9 @@ export const I18N = {
     manager_notes: 'ملاحظات المدير', write_notes: 'اكتب ملاحظات اليوم...',
     save_notes: 'حفظ الملاحظات', all_types: 'كل الأنواع', prog_label: 'اسم البرنامج',
     per_company: 'حسب الشركة',
+    total_liters: 'إجمالي اللتر', liters_unit: 'لتر', chemist_label: 'كيميائي',
+    responsible_chemist: 'الكيميائي المسؤول', mark_chemist: 'كيميائي', is_chemist: 'عامل كيميائي',
+    select_chemist: 'اختر الكيميائي', none: 'بدون',
   },
   it: {
     dir: 'ltr',
@@ -120,6 +123,9 @@ export const I18N = {
     manager_notes: 'Note responsabile', write_notes: 'Scrivi note del giorno...',
     save_notes: 'Salva note', all_types: 'Tutti', prog_label: 'Nome programma',
     per_company: 'Per azienda',
+    total_liters: 'Litri totali', liters_unit: 'Litri', chemist_label: 'Chimico',
+    responsible_chemist: 'Chimico responsabile', mark_chemist: 'Chimico', is_chemist: 'Operaio chimico',
+    select_chemist: 'Seleziona chimico', none: 'Nessuno',
   },
   en: {
     dir: 'ltr',
@@ -179,6 +185,9 @@ export const I18N = {
     manager_notes: 'Manager notes', write_notes: "Write today's notes...",
     save_notes: 'Save notes', all_types: 'All types', prog_label: 'Program name',
     per_company: 'By company',
+    total_liters: 'Total liters', liters_unit: 'L', chemist_label: 'Chemist',
+    responsible_chemist: 'Responsible chemist', mark_chemist: 'Chemist', is_chemist: 'Chemist worker',
+    select_chemist: 'Select chemist', none: 'None',
   },
   es: {
     dir: 'ltr',
@@ -238,5 +247,8 @@ export const I18N = {
     manager_notes: 'Notas del gerente', write_notes: 'Escribe las notas del día...',
     save_notes: 'Guardar notas', all_types: 'Todos', prog_label: 'Nombre programa',
     per_company: 'Por empresa',
+    total_liters: 'Litros totales', liters_unit: 'L', chemist_label: 'Químico',
+    responsible_chemist: 'Químico responsable', mark_chemist: 'Químico', is_chemist: 'Operario químico',
+    select_chemist: 'Selecciona químico', none: 'Ninguno',
   },
 };

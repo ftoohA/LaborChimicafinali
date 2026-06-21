@@ -541,6 +541,7 @@ export default function Program() {
                           <tr>
                             <th style={{ minWidth: 200 }}>{T.col_product}</th>
                             <th style={{ width: 100 }}>{T.col_target}</th>
+                            <th style={{ width: 110 }}>{T.total_liters}</th>
                             <th>{state.lang === 'ar' ? 'التركيبة' : 'Ricetta'}</th>
                           </tr>
                         </thead>
