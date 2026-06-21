@@ -33,19 +33,48 @@ export default function History() {
                     <span className="smallmuted">{pr.label || ''}</span>
                   </div>
                   <table>
+                    <thead>
+                      <tr style={{ color: 'var(--muted)', fontSize: 11 }}>
+                        <th style={{ textAlign: 'start' }}>{T.col_product}</th>
+                        {pr.progType === 'brazer' && (
+                          <>
+                            <th style={{ textAlign: 'start' }}>{state.lang === 'ar' ? 'علبة الباستا' : 'Pasta Box'}</th>
+                            <th style={{ textAlign: 'start' }}>{state.lang === 'ar' ? 'غطاء الباستا' : 'Pasta Lid'}</th>
+                          </>
+                        )}
+                        {pr.progType !== 'brazer' && pr.progType !== 'amazon' && (
+                          <>
+                            <th style={{ textAlign: 'start' }}>{T.col_cover}</th>
+                            <th style={{ textAlign: 'start' }}>{T.col_basket}</th>
+                          </>
+                        )}
+                        <th style={{ textAlign: 'start' }}>{T.col_target}</th>
+                        <th style={{ textAlign: 'start' }}>{T.col_confirm}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {pr.items.map((it, ii) => {
                         const p = state.products.find(x => x.id === it.productId);
                         const cv = state.covers.find(x => x.id === it.coverId);
                         const bk = state.baskets.find(x => x.id === it.basketId);
+                        const pb = state.pastaBoxes?.find(x => x.id === (it.pastaBoxId || p?.pastaBoxId));
+                        const pl = state.pastaLids?.find(x => x.id === (it.pastaLidId || p?.pastaLidId));
                         return (
                           <tr key={ii}>
-                            <td className="mono smallmuted">{it.time || '—'}</td>
                             <td>{p ? p.name : '?'}</td>
-                            <td className="smallmuted">{cv ? cv.name : '—'}</td>
-                            <td className="smallmuted">{bk ? bk.name : '—'}</td>
+                            {pr.progType === 'brazer' && (
+                              <>
+                                <td className="smallmuted">{pb ? pb.name : '—'}</td>
+                                <td className="smallmuted">{pl ? pl.name : '—'}</td>
+                              </>
+                            )}
+                            {pr.progType !== 'brazer' && pr.progType !== 'amazon' && (
+                              <>
+                                <td className="smallmuted">{cv ? cv.name : '—'}</td>
+                                <td className="smallmuted">{bk ? bk.name : '—'}</td>
+                              </>
+                            )}
                             <td className="mono">{it.target}</td>
-                            <td className="mono smallmuted">{it.kilos ? `${it.kilos}kg` : ''}</td>
                             <td>
                               {it.status === 'done'
                                 ? <span className="badge ok">✓</span>

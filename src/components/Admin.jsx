@@ -16,6 +16,14 @@ export default function Admin() {
   const [stockingCover, setStockingCover] = useState(null);
   const [stockingBasket, setStockingBasket] = useState(null);
   const [addingCompany, setAddingCompany] = useState(false);
+  const [addingWorker, setAddingWorker] = useState(false);
+  const [stockingPasta, setStockingPasta] = useState(null); // 'sponges' | 'spongeLids'
+  const [editingPastaLiquid, setEditingPastaLiquid] = useState(null);
+  const [stockingPastaLiquid, setStockingPastaLiquid] = useState(null);
+  const [addingPastaBox, setAddingPastaBox] = useState(false);
+  const [addingPastaLid, setAddingPastaLid] = useState(false);
+  const [stockingPastaBox, setStockingPastaBox] = useState(null);
+  const [stockingPastaLid, setStockingPastaLid] = useState(null);
 
   const setSetting = (k, v) => setSettings(s => ({ ...s, [k]: v }));
 
@@ -43,6 +51,57 @@ export default function Admin() {
     toast(T.deleted);
   };
 
+  const deleteWorker = (id) => {
+    if (!confirm(T.confirm_delete)) return;
+    update({ workers: (state.workers || []).filter(w => w.id !== id) });
+    toast(T.deleted);
+  };
+
+  const deletePastaBox = (id) => {
+    if (!confirm(state.lang === 'ar' ? 'هل أنت متأكد من الحذف؟' : 'Are you sure?')) return;
+    update({ pastaBoxes: (state.pastaBoxes || []).filter(pb => pb.id !== id) });
+    toast(state.lang === 'ar' ? 'تم الحذف' : 'Deleted');
+  };
+
+  const deletePastaLid = (id) => {
+    if (!confirm(state.lang === 'ar' ? 'هل أنت متأكد من الحذف؟' : 'Are you sure?')) return;
+    update({ pastaLids: (state.pastaLids || []).filter(pl => pl.id !== id) });
+    toast(state.lang === 'ar' ? 'تم الحذف' : 'Deleted');
+  };
+
+  const addPastaBoxStock = (id, qty, reason) => {
+    update({
+      pastaBoxes: (state.pastaBoxes || []).map(pb =>
+        pb.id !== id ? pb : { ...pb, stock: (pb.stock || 0) + qty }
+      )
+    });
+    addLog({ type: 'pasta_box_stock_add', id, qty, reason, by: state.role });
+    setStockingPastaBox(null);
+  };
+
+  const addPastaLidStock = (id, qty, reason) => {
+    update({
+      pastaLids: (state.pastaLids || []).map(pl =>
+        pl.id !== id ? pl : { ...pl, stock: (pl.stock || 0) + qty }
+      )
+    });
+    addLog({ type: 'pasta_lid_stock_add', id, qty, reason, by: state.role });
+    setStockingPastaLid(null);
+  };
+
+  const addPastaStock = (field, qty, reason) => {
+    const currentStock = state.pastaStock || { sponges: 0, spongeLids: 0 };
+    update({
+      pastaStock: {
+        ...currentStock,
+        [field]: (currentStock[field] || 0) + qty
+      }
+    });
+    addLog({ type: 'pasta_stock_add', material: field, qty, reason, by: state.role });
+    toast(T.success_added);
+    setStockingPasta(null);
+  };
+
   const addCoverStock = (id, qty, reason) => {
     update({
       covers: state.covers.map(c =>
@@ -65,10 +124,66 @@ export default function Admin() {
     setStockingBasket(null);
   };
 
+  const deletePastaLiquid = (id) => {
+    if (!confirm(T.confirm_delete)) return;
+    update({ pastaLiquids: (state.pastaLiquids || []).filter(pl => pl.id !== id) });
+    toast(T.deleted);
+  };
+
+  const addPastaLiquidStock = (id, qty, reason) => {
+    update({
+      pastaLiquids: (state.pastaLiquids || []).map(pl =>
+        pl.id !== id ? pl : { ...pl, stock: (pl.stock || 0) + qty }
+      ),
+    });
+    addLog({ type: 'pasta_liquid_stock_add', id, qty, reason, by: state.role });
+    toast(T.success_added);
+    setStockingPastaLiquid(null);
+  };
+
   return (
     <>
       {/* Change Password */}
       <ChangePasswordCard T={T} state={state} update={update} toast={toast} />
+
+      {/* Daily Code */}
+      {(() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const currentCode = (state.dailyCodes || {})[today] || '';
+        return (
+          <div className="card" style={{ borderColor: 'var(--yellow)', marginBottom: 16 }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 12px 0' }}>
+              🔑 {state.lang === 'ar' ? 'كود التأكيد اليومي' : state.lang === 'it' ? 'Codice conferma giornaliero' : 'Daily Confirmation Code'}
+            </h3>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
+              {state.lang === 'ar' ? 'هذا الكود يتغيّر كل يوم. يُستخدم لتأكيد أي عملية في البرنامج (بانكاله، تحضير سائل، إلخ). شاركه مع الموظفين خارج البرنامج.' :
+               state.lang === 'it' ? 'Questo codice cambia ogni giorno. Viene utilizzato per confermare qualsiasi operazione (bancale, preparazione liquido, ecc.). Condividilo con i dipendenti fuori dall\'app.' :
+               'This code changes daily. Used to confirm any program action (pallet, liquid prep, etc.). Share it with workers outside the app.'}
+            </p>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <input
+                value={currentCode}
+                onChange={e => update({ dailyCodes: { ...state.dailyCodes, [today]: e.target.value } })}
+                placeholder={state.lang === 'ar' ? 'اكتب كود اليوم...' : state.lang === 'it' ? 'Scrivi il codice di oggi...' : 'Enter today\'s code...'}
+                style={{ flex: 1, fontSize: 20, fontWeight: 800, textAlign: 'center', letterSpacing: 3, padding: '10px 16px', borderRadius: 8, border: '2px solid var(--yellow)', background: 'rgba(242,183,5,0.06)' }}
+              />
+              {currentCode && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--yellow)', letterSpacing: 4, fontFamily: 'monospace' }}>{currentCode}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)' }}>{today}</div>
+                </div>
+              )}
+            </div>
+            {!currentCode && (
+              <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, fontSize: 12, color: 'var(--red)' }}>
+                ⚠️ {state.lang === 'ar' ? 'لم يتم تعيين كود لهذا اليوم! لن يتمكن الموظفون من تأكيد أي عملية.' :
+                     state.lang === 'it' ? 'Nessun codice impostato per oggi! I dipendenti non potranno confermare operazioni.' :
+                     'No code set for today! Workers cannot confirm any actions.'}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Settings */}
       <div className="card">
@@ -79,10 +194,16 @@ export default function Admin() {
             ['wasteCap', T.waste_cap],
             ['wasteJerrican', T.waste_jerrican],
             ['lowStock', T.low_stock_threshold],
+            ['wastePastaBox', state.lang === 'ar' ? 'هادر علب الباستا %' : state.lang === 'it' ? 'Scarto scatole pasta %' : 'Pasta Box Waste %'],
+            ['wastePastaLid', state.lang === 'ar' ? 'هادر أغطية الباستا %' : state.lang === 'it' ? 'Scarto coperchi pasta %' : 'Pasta Lid Waste %'],
+            ['wastePastaSponge', state.lang === 'ar' ? 'هادر إسفنج الباستا %' : state.lang === 'it' ? 'Scarto spugna pasta %' : 'Pasta Sponge Waste %'],
+            ['wastePastaSpongeLid', state.lang === 'ar' ? 'هادر غطاء إسفنج الباستا %' : state.lang === 'it' ? 'Scarto coperchio spugna %' : 'Pasta Sponge Lid Waste %'],
+            ['wastePastaLiquid', state.lang === 'ar' ? 'هادر سائل الباستا %' : state.lang === 'it' ? 'Scarto liquido pasta %' : 'Pasta Liquid Waste %'],
+            ['lowStockPasta', state.lang === 'ar' ? '⚠️ حد التحذير للباستا (كرتونة)' : state.lang === 'it' ? '⚠️ Soglia scorte pasta (cartoni)' : '⚠️ Pasta Low-Stock Threshold (cartons)'],
           ].map(([k, label]) => (
             <div className="field" key={k}>
               <label>{label}</label>
-              <input type="number" step="0.1" value={settings[k]}
+              <input type="number" step="0.1" value={settings[k] ?? ''}
                 onChange={e => setSetting(k, Number(e.target.value) || 0)} />
             </div>
           ))}
@@ -214,6 +335,252 @@ export default function Admin() {
         )}
       </div>
 
+      {/* Workers */}
+      <div className="card">
+        <div className="flex-between">
+          <h3 style={{ margin: 0 }}>👥 {state.lang === 'ar' ? 'إدارة العمال' : 'Manage Workers'}</h3>
+          <button className="primary" onClick={() => setAddingWorker(true)}>
+            + {state.lang === 'ar' ? 'إضافة عامل' : 'Add Worker'}
+          </button>
+        </div>
+        {(!state.workers || state.workers.length === 0) ? (
+          <div className="empty">{state.lang === 'ar' ? 'لا يوجد عمال بعد' : 'No workers yet'}</div>
+        ) : (
+          <table style={{ marginTop: 14 }}>
+            <thead>
+              <tr>
+                <th>{state.lang === 'ar' ? 'اسم العامل' : 'Worker Name'}</th>
+                <th>{state.lang === 'ar' ? 'وقت الغداء' : 'Lunch Break Time'}</th>
+                <th>{T.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.workers.map(w => (
+                <tr key={w.id}>
+                  <td style={{ fontWeight: 600 }}>{w.name}</td>
+                  <td className="mono">{w.lunchTime || '—'}</td>
+                  <td>
+                    <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deleteWorker(w.id)}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Pasta Materials Stock */}
+      <div className="card">
+        <h3 style={{ marginBottom: 14 }}>🧪 {state.lang === 'ar' ? 'مخزون خامات الباستا (Pasta Abrasiva)' : 'Pasta Abrasiva Materials Stock'}</h3>
+        <div className="grid cols-2" style={{ gap: 12 }}>
+          {[
+            ['sponges', state.lang === 'ar' ? 'الإسفنج (Sponges)' : 'Sponges', '🧽'],
+            ['spongeLids', state.lang === 'ar' ? 'أغطية الإسفنج' : 'Sponge Lids', '🧢'],
+          ].map(([field, label, icon]) => {
+            const stockVal = state.pastaStock?.[field] || 0;
+            return (
+              <div className="card" key={field} style={{ margin: 0, padding: 12, textAlign: 'center', background: 'var(--panel)' }}>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--muted)', marginBottom: 4 }}>{label}</div>
+                <div className="mono" style={{ fontSize: 20, fontWeight: 800, color: 'var(--yellow)', marginBottom: 8 }}>
+                  {stockVal.toLocaleString()}
+                </div>
+                <button 
+                  style={{ fontSize: 11, padding: '3px 8px', width: '100%' }}
+                  onClick={() => setStockingPasta(field)}
+                >
+                  + {state.lang === 'ar' ? 'إضافة كمية' : 'Add Stock'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pasta Boxes */}
+      <div className="card">
+        <div className="flex-between">
+          <h3 style={{ margin: 0 }}>📦 {state.lang === 'ar' ? 'إدارة علب الباستا' : 'Manage Pasta Boxes'}</h3>
+          <button className="primary" onClick={() => setAddingPastaBox(true)}>+ {state.lang === 'ar' ? 'إضافة علبة' : 'Add Box'}</button>
+        </div>
+        {(!state.pastaBoxes || state.pastaBoxes.length === 0) ? (
+          <div className="empty">{state.lang === 'ar' ? 'لا توجد علب مضافة' : 'No boxes added'}</div>
+        ) : (
+          <table style={{ marginTop: 14 }}>
+            <thead>
+              <tr>
+                <th>{state.lang === 'ar' ? 'اسم العلبة' : 'Box Name'}</th>
+                <th>{T.color}</th>
+                <th>{T.size}</th>
+                <th>{T.stock_count}</th>
+                <th>{T.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(state.pastaBoxes || []).map(pb => {
+                const low = (pb.stock || 0) < state.settings.lowStock * 20;
+                return (
+                  <tr key={pb.id}>
+                    <td style={{ fontWeight: 600 }}>{pb.name}</td>
+                    <td><span className="color-chip">{pb.color || '—'}</span></td>
+                    <td><span className="size-chip">{pb.size || '—'}</span></td>
+                    <td>
+                      <span className={`mono ${low ? 'bad' : ''}`} style={{ fontWeight: 700, color: low ? 'var(--red)' : 'var(--green)' }}>
+                        {(pb.stock || 0).toLocaleString()}
+                      </span>
+                      <span className="smallmuted" style={{ marginInlineStart: 4 }}>{T.pieces}</span>
+                    </td>
+                    <td>
+                      <div className="row">
+                        <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setStockingPastaBox(pb)}>
+                          + {state.lang === 'ar' ? 'إضافة مخزون' : 'Add Stock'}
+                        </button>
+                        <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deletePastaBox(pb.id)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Pasta Lids */}
+      <div className="card">
+        <div className="flex-between">
+          <h3 style={{ margin: 0 }}>🔴 {state.lang === 'ar' ? 'إدارة أغطية الباستا' : 'Manage Pasta Lids'}</h3>
+          <button className="primary" onClick={() => setAddingPastaLid(true)}>+ {state.lang === 'ar' ? 'إضافة غطاء' : 'Add Lid'}</button>
+        </div>
+        {(!state.pastaLids || state.pastaLids.length === 0) ? (
+          <div className="empty">{state.lang === 'ar' ? 'لا توجد أغطية مضافة' : 'No lids added'}</div>
+        ) : (
+          <table style={{ marginTop: 14 }}>
+            <thead>
+              <tr>
+                <th>{state.lang === 'ar' ? 'اسم الغطاء' : 'Lid Name'}</th>
+                <th>{T.color}</th>
+                <th>{T.size}</th>
+                <th>{T.stock_count}</th>
+                <th>{T.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(state.pastaLids || []).map(pl => {
+                const low = (pl.stock || 0) < state.settings.lowStock * 20;
+                return (
+                  <tr key={pl.id}>
+                    <td style={{ fontWeight: 600 }}>{pl.name}</td>
+                    <td><span className="color-chip">{pl.color || '—'}</span></td>
+                    <td><span className="size-chip">{pl.size || '—'}</span></td>
+                    <td>
+                      <span className={`mono ${low ? 'bad' : ''}`} style={{ fontWeight: 700, color: low ? 'var(--red)' : 'var(--green)' }}>
+                        {(pl.stock || 0).toLocaleString()}
+                      </span>
+                      <span className="smallmuted" style={{ marginInlineStart: 4 }}>{T.pieces}</span>
+                    </td>
+                    <td>
+                      <div className="row">
+                        <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setStockingPastaLid(pl)}>
+                          + {state.lang === 'ar' ? 'إضافة مخزون' : 'Add Stock'}
+                        </button>
+                        <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deletePastaLid(pl.id)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Pasta Liquids Stock */}
+      <div className="card">
+        <div className="flex-between">
+          <h3 style={{ margin: 0 }}>🧪 {state.lang === 'ar' ? 'إدارة سوائل الباستا (Liquids)' : 'Manage Pasta Liquids'}</h3>
+          <button className="primary" onClick={() => setEditingPastaLiquid(false)}>
+            + {state.lang === 'ar' ? 'إضافة سائل باستا' : 'Add Pasta Liquid'}
+          </button>
+        </div>
+        {(!state.pastaLiquids || state.pastaLiquids.length === 0) ? (
+          <div className="empty" style={{ marginTop: 14 }}>
+            {state.lang === 'ar' ? 'لا توجد سوائل باستا مضافة بعد.' : 'No pasta liquids added yet.'}
+          </div>
+        ) : (
+          <table style={{ marginTop: 14 }}>
+            <thead>
+              <tr>
+                <th>{state.lang === 'ar' ? 'اسم السائل' : 'Liquid Name'}</th>
+                <th>{state.lang === 'ar' ? 'المخزون الحالي' : 'Current Stock'}</th>
+                <th>{state.lang === 'ar' ? 'المكونات (لكل 1 لتر)' : 'Ingredients (per 1L)'}</th>
+                <th>{state.lang === 'ar' ? 'خطوات التحضير اليدوية' : 'Handwritten Steps'}</th>
+                <th>{T.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.pastaLiquids.map(pl => (
+                <tr key={pl.id}>
+                  <td style={{ fontWeight: 600 }}>{pl.name}</td>
+                  <td>
+                    <span className="mono" style={{ fontWeight: 800, color: 'var(--yellow)', fontSize: 16 }}>
+                      {(pl.stock || 0).toLocaleString()}
+                    </span>
+                    <span className="smallmuted" style={{ marginInlineStart: 4 }}>{state.lang === 'ar' ? 'لتر' : 'L'}</span>
+                  </td>
+                  <td>
+                    {(!pl.recipe || pl.recipe.length === 0) ? (
+                      <span className="smallmuted">—</span>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
+                        {pl.recipe.map((ing, idx) => (
+                          <div key={idx}>
+                            • {ing.name}: <span className="mono" style={{ color: 'var(--green)' }}>{ing.ratio} لتر/لتر</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ maxWidth: 200, fontSize: 12 }}>
+                    {pl.prepNotes ? (
+                      <div style={{ whiteSpace: 'pre-wrap', maxHeight: 80, overflowY: 'auto', background: 'var(--panel)', padding: 6, borderRadius: 4 }}>
+                        {pl.prepNotes}
+                      </div>
+                    ) : (
+                      <span className="smallmuted">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="row" style={{ gap: 6 }}>
+                      <button 
+                        style={{ fontSize: 12, padding: '4px 10px' }} 
+                        onClick={() => setStockingPastaLiquid(pl)}
+                      >
+                        + {state.lang === 'ar' ? 'تعبئة' : 'Restock'}
+                      </button>
+                      <button 
+                        className="ghost" 
+                        style={{ fontSize: 12, padding: '4px 10px' }} 
+                        onClick={() => setEditingPastaLiquid(pl)}
+                      >
+                        ⚙️
+                      </button>
+                      <button 
+                        className="danger ghost" 
+                        style={{ padding: '4px 8px' }} 
+                        onClick={() => deletePastaLiquid(pl.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Modals */}
       {addingCover && (
         <CoverModal T={T} onClose={() => setAddingCover(false)}
@@ -237,7 +604,225 @@ export default function Admin() {
         <CompanyModal T={T} onClose={() => setAddingCompany(false)}
           onSave={company => { update({ companies: [...state.companies, company] }); toast(T.success_added); setAddingCompany(false); }} />
       )}
+      {addingWorker && (
+        <WorkerModal 
+          T={T} 
+          lang={state.lang}
+          onClose={() => setAddingWorker(false)}
+          onSave={worker => { 
+            update({ workers: [...(state.workers || []), worker] }); 
+            toast(T.success_added); 
+            setAddingWorker(false); 
+          }} 
+        />
+      )}
+      {stockingPasta && (
+        <AddStockModal 
+          T={T} 
+          title={`${T.add_stock} — ${
+            stockingPasta === 'sponges' ? (state.lang === 'ar' ? 'الإسفنج (Sponges)' : 'Sponges') :
+            (state.lang === 'ar' ? 'أغطية الإسفنج' : 'Sponge Lids')
+          }`}
+          onClose={() => setStockingPasta(null)}
+          onSave={(qty, reason) => addPastaStock(stockingPasta, qty, reason)} 
+        />
+      )}
+      {editingPastaLiquid !== null && (
+        <PastaLiquidModal
+          existing={editingPastaLiquid || null}
+          T={T}
+          lang={state.lang}
+          onClose={() => setEditingPastaLiquid(null)}
+          onSave={liquid => {
+            if (editingPastaLiquid) {
+              update({ pastaLiquids: (state.pastaLiquids || []).map(pl => pl.id === liquid.id ? liquid : pl) });
+            } else {
+              update({ pastaLiquids: [...(state.pastaLiquids || []), liquid] });
+            }
+            toast(T.success_added);
+            setEditingPastaLiquid(null);
+          }}
+        />
+      )}
+      {stockingPastaLiquid && (
+        <AddStockModal
+          T={T}
+          title={`${state.lang === 'ar' ? 'تعبئة سائل باستا' : 'Restock Pasta Liquid'} — ${stockingPastaLiquid.name}`}
+          onClose={() => setStockingPastaLiquid(null)}
+          onSave={(qty, reason) => addPastaLiquidStock(stockingPastaLiquid.id, qty, reason)}
+        />
+      )}
+      {addingPastaBox && (
+        <PastaMaterialModal 
+          T={T} 
+          lang={state.lang} 
+          title={state.lang === 'ar' ? 'إضافة علبة باستا جديدة' : 'Add New Pasta Box'}
+          labelName={state.lang === 'ar' ? 'اسم العلبة' : 'Box Name'}
+          onClose={() => setAddingPastaBox(false)}
+          onSave={box => {
+            update({ pastaBoxes: [...(state.pastaBoxes || []), box] });
+            toast(T.success_added);
+            setAddingPastaBox(false);
+          }}
+        />
+      )}
+      {addingPastaLid && (
+        <PastaMaterialModal 
+          T={T} 
+          lang={state.lang} 
+          title={state.lang === 'ar' ? 'إضافة غطاء باستا جديد' : 'Add New Pasta Lid'}
+          labelName={state.lang === 'ar' ? 'اسم الغطاء' : 'Lid Name'}
+          onClose={() => setAddingPastaLid(false)}
+          onSave={lid => {
+            update({ pastaLids: [...(state.pastaLids || []), lid] });
+            toast(T.success_added);
+            setAddingPastaLid(false);
+          }}
+        />
+      )}
+      {stockingPastaBox && (
+        <AddStockModal 
+          T={T} 
+          title={`${state.lang === 'ar' ? 'تعبئة مخزون علب الباستا' : 'Restock Pasta Box'} — ${stockingPastaBox.name}`}
+          onClose={() => setStockingPastaBox(null)}
+          onSave={(qty, reason) => addPastaBoxStock(stockingPastaBox.id, qty, reason)}
+        />
+      )}
+      {stockingPastaLid && (
+        <AddStockModal 
+          T={T} 
+          title={`${state.lang === 'ar' ? 'تعبئة مخزون أغطية الباستا' : 'Restock Pasta Lid'} — ${stockingPastaLid.name}`}
+          onClose={() => setStockingPastaLid(null)}
+          onSave={(qty, reason) => addPastaLidStock(stockingPastaLid.id, qty, reason)}
+        />
+      )}
     </>
+  );
+}
+
+/* ---- Pasta Liquid Modal ---- */
+function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
+  const toast = useToast();
+  const [name, setName] = useState(existing?.name || '');
+  const [stock, setStock] = useState(existing?.stock ?? 0);
+  const [prepNotes, setPrepNotes] = useState(existing?.prepNotes || '');
+  const [recipe, setRecipe] = useState(
+    (existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name, ratio: r.ratio }))
+  );
+
+  const addIngredient = () => {
+    setRecipe(r => [...r, { id: uid(), name: '', ratio: '' }]);
+  };
+
+  const updateIngredient = (id, field, value) => {
+    setRecipe(r => r.map(x => x.id === id ? { ...x, [field]: value } : x));
+  };
+
+  const removeIngredient = (id) => {
+    setRecipe(r => r.filter(x => x.id !== id));
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) {
+      toast(lang === 'ar' ? 'الاسم مطلوب' : 'Name is required', true);
+      return;
+    }
+    const cleanedRecipe = recipe
+      .filter(r => r.name.trim() && Number(r.ratio) > 0)
+      .map(r => ({
+        id: r.id,
+        name: r.name.trim(),
+        ratio: Number(r.ratio) || 0
+      }));
+
+    onSave({
+      id: existing?.id || uid(),
+      name: name.trim(),
+      stock: Number(stock) || 0,
+      prepNotes: prepNotes.trim(),
+      recipe: cleanedRecipe
+    });
+  };
+
+  return (
+    <Modal onClose={onClose} maxWidth={500}>
+      <h3>{existing ? (lang === 'ar' ? 'تعديل سائل باستا' : 'Edit Pasta Liquid') : (lang === 'ar' ? 'إضافة سائل باستا جديد' : 'Add New Pasta Liquid')}</h3>
+      
+      <div className="grid cols-2" style={{ marginBottom: 12 }}>
+        <div className="field">
+          <label>{lang === 'ar' ? 'اسم السائل' : 'Liquid Name'}</label>
+          <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="باستا بيضاء..." />
+        </div>
+        {!existing && (
+          <div className="field">
+            <label>{lang === 'ar' ? 'المخزون الابتدائي (لتر)' : 'Initial Stock (Liters)'}</label>
+            <input type="number" value={stock} onChange={e => setStock(e.target.value)} />
+          </div>
+        )}
+      </div>
+
+      {/* Recipe */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginTop: 12 }}>
+        <label style={{ fontWeight: 'bold' }}>🧪 {lang === 'ar' ? 'مكونات السائل ونسب التحضير (لكل 1 لتر)' : 'Ingredients & Ratio (per 1 Liter)'}</label>
+        <button type="button" className="primary" style={{ padding: '2px 8px', fontSize: 11 }} onClick={addIngredient}>
+          + {lang === 'ar' ? 'إضافة مكون' : 'Add Ingredient'}
+        </button>
+      </div>
+
+      {recipe.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic', margin: '8px 0' }}>
+          {lang === 'ar' ? 'لا توجد مكونات مضافة لطريقة التحضير بعد.' : 'No ingredients added for this liquid yet.'}
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+          {recipe.map((ing, idx) => (
+            <div key={ing.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                className="input-sm"
+                style={{ flex: 2 }}
+                placeholder={lang === 'ar' ? "اسم المكون (مثال: ماء)" : "Ingredient name"}
+                value={ing.name}
+                onChange={e => updateIngredient(ing.id || idx, 'name', e.target.value)}
+              />
+              <input
+                className="input-sm"
+                type="number"
+                step="any"
+                style={{ flex: 1, minWidth: 80 }}
+                placeholder={lang === 'ar' ? "النسبة" : "Ratio"}
+                value={ing.ratio}
+                onChange={e => updateIngredient(ing.id || idx, 'ratio', e.target.value)}
+              />
+              <span className="mono" style={{ fontSize: 11, color: 'var(--muted)', width: 45 }}>{lang === 'ar' ? 'لتر/لتر' : 'L/L'}</span>
+              <button
+                type="button"
+                className="ghost"
+                style={{ color: 'var(--red)', padding: '4px 8px' }}
+                onClick={() => removeIngredient(ing.id || idx)}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Handwritten instructions prepNotes */}
+      <div className="field" style={{ marginTop: 14 }}>
+        <label style={{ fontWeight: 'bold' }}>📝 {lang === 'ar' ? 'خطوات التحضير اليدوية (للكيميائي)' : 'Handwritten Preparation Steps (for Chemist)'}</label>
+        <textarea
+          value={prepNotes}
+          onChange={e => setPrepNotes(e.target.value)}
+          placeholder={lang === 'ar' ? 'اكتب خطوات التحضير بالتفصيل هنا ليقرأها الكيميائي...' : 'Write detailed manual steps for the chemist here...'}
+          style={{ minHeight: 80 }}
+        />
+      </div>
+
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={handleSave}>{T.save}</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -264,7 +849,7 @@ function CoverModal({ T, onClose, onSave }) {
       <div className="grid cols-2">
         <div className="field">
           <label>{T.color}</label>
-          <input autoFocus value={f.color} onChange={e => set('color', e.target.value)} placeholder="أحمر / أزرق ..." />
+          <input autoFocus value={f.color} onChange={e => set('color', e.target.value)} placeholder="nero / blu ..." />
         </div>
         <div className="field">
           <label>{T.size}</label>
@@ -315,7 +900,7 @@ function BasketModal({ T, onClose, onSave }) {
       <div className="grid cols-2">
         <div className="field">
           <label>{T.color}</label>
-          <input autoFocus value={f.color} onChange={e => set('color', e.target.value)} placeholder="شفاف / أزرق ..." />
+          <input autoFocus value={f.color} onChange={e => set('color', e.target.value)} placeholder="Normale /con beccuccio ..." />
         </div>
         <div className="field">
           <label>{T.size}</label>
@@ -326,7 +911,7 @@ function BasketModal({ T, onClose, onSave }) {
           <input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} />
         </div>
         <div className="field">
-          <label>{T.basket_name} (اختياري)</label>
+          <label>{T.basket_name} ("Opzionale")</label>
           <input value={f.name} onChange={e => set('name', e.target.value)} placeholder={autoName() || `${T.basket_name}...`} />
         </div>
       </div>
@@ -441,6 +1026,85 @@ function AddStockModal({ T, title, onClose, onSave }) {
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={() => { if (qty > 0) onSave(qty, reason); }}>{T.confirm}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---- Worker Modal ---- */
+function WorkerModal({ T, lang, onClose, onSave }) {
+  const toast = useToast();
+  const [name, setName] = useState('');
+  const [lunchTime, setLunchTime] = useState('12:00 - 12:30');
+
+  const handleSave = () => {
+    if (!name.trim()) { 
+      toast(lang === 'ar' ? 'الاسم مطلوب' : 'Name is required', true); 
+      return; 
+    }
+    onSave({ id: uid(), name: name.trim(), lunchTime: lunchTime.trim() });
+  };
+
+  return (
+    <Modal onClose={onClose} maxWidth={360}>
+      <h3>{lang === 'ar' ? 'إضافة عامل جديد' : 'Add New Worker'}</h3>
+      <div className="field" style={{ marginBottom: 12 }}>
+        <label>{lang === 'ar' ? 'اسم العامل' : 'Worker Name'}</label>
+        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="أحمد محمد..." />
+      </div>
+      <div className="field" style={{ marginBottom: 16 }}>
+        <label>{lang === 'ar' ? 'وقت الغداء' : 'Lunch Break Time'}</label>
+        <input value={lunchTime} onChange={e => setLunchTime(e.target.value)} placeholder="12:00 - 12:30..." />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={handleSave}>{T.save}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---- Pasta Material Modal ---- */
+function PastaMaterialModal({ T, lang, title, labelName, onClose, onSave }) {
+  const toast = useToast();
+  const [f, setF] = useState({ name: '', color: '', size: '', stock: 0 });
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
+
+  const autoName = () => {
+    const parts = [f.color, f.size].filter(Boolean);
+    return parts.join(' - ');
+  };
+
+  const handleSave = () => {
+    const name = f.name.trim() || autoName();
+    if (!name) { toast('—', true); return; }
+    onSave({ id: uid(), name, color: f.color.trim(), size: f.size.trim(), stock: Number(f.stock) || 0 });
+  };
+
+  return (
+    <Modal onClose={onClose} maxWidth={400}>
+      <h3>{title}</h3>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>{T.color}</label>
+          <input autoFocus value={f.color} onChange={e => set('color', e.target.value)} placeholder="nero / blu ..." />
+        </div>
+        <div className="field">
+          <label>{T.size}</label>
+          <input value={f.size} onChange={e => set('size', e.target.value)} placeholder="5L / 10L ..." />
+        </div>
+        <div className="field">
+          <label>{T.stock_count}</label>
+          <input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>{labelName} ({lang === 'ar' ? 'اختياري' : 'optional'})</label>
+          <input value={f.name} onChange={e => set('name', e.target.value)} placeholder={autoName() || `${labelName}...`} />
+        </div>
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={handleSave}>{T.save}</button>
       </div>
     </Modal>
   );

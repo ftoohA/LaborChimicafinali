@@ -11,7 +11,8 @@ const DEFAULTS = {
   covers: [],
   baskets: [],
   managerNotes: {},
-  settings: { wasteTicket: 4, wasteCap: 2, wasteJerrican: 1.8, lowStock: 5 },
+  settings: { wasteTicket: 4, wasteCap: 2, wasteJerrican: 1.8, lowStock: 5, wastePastaBox: 2, wastePastaLid: 2, wastePastaSponge: 2, wastePastaSpongeLid: 2, wastePastaLiquid: 2, lowStockPasta: 10 },
+  dailyCodes: {},
   log: [],
   companies: [
     { id: 'c1', name: 'شركة الفجر' },
@@ -20,6 +21,11 @@ const DEFAULTS = {
   ],
   adminPass: '',
   workerPass: '',
+  workers: [],
+  pastaStock: { sponges: 0, spongeLids: 0 },
+  pastaLiquids: [],
+  pastaBoxes: [],
+  pastaLids: [],
 };
 
 // Firestore document references
@@ -69,6 +75,12 @@ export function StoreProvider({ children }) {
           companies:    d.companies    ?? DEFAULTS.companies,
           adminPass:    d.adminPass    ?? DEFAULTS.adminPass,
           workerPass:   d.workerPass   ?? DEFAULTS.workerPass,
+          workers:      d.workers      ?? DEFAULTS.workers,
+           pastaStock:   d.pastaStock   ?? DEFAULTS.pastaStock,
+          pastaLiquids: d.pastaLiquids ?? DEFAULTS.pastaLiquids,
+          pastaBoxes:   d.pastaBoxes   ?? DEFAULTS.pastaBoxes,
+          pastaLids:    d.pastaLids    ?? DEFAULTS.pastaLids,
+          dailyCodes:   d.dailyCodes   ?? DEFAULTS.dailyCodes,
         }));
       }
       markLoaded();
@@ -111,6 +123,11 @@ export function StoreProvider({ children }) {
             companies:    newState.companies,
             adminPass:    newState.adminPass,
             workerPass:   newState.workerPass,
+            workers:      newState.workers,
+            pastaStock:   newState.pastaStock,
+            pastaLiquids: newState.pastaLiquids,
+            pastaBoxes:   newState.pastaBoxes,
+            pastaLids:    newState.pastaLids,
           }),
           setDoc(REF_PROGS(db), { programs: newState.programs }),
           setDoc(REF_LOG(db),   { entries: newState.log.slice(-800) }),
@@ -125,7 +142,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   /* ── update() — replaces partial state and triggers save ── */
-  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass']);
+  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids']);
 
   const update = useCallback((partial) => {
     setState(s => {

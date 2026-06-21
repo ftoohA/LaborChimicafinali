@@ -10,7 +10,7 @@ export default function Dashboard() {
   const today = todayStr();
   const progs = state.programs[today] || [];
 
-  const low = state.products.filter(p => bancaleEquivalent(p, p.stock, state.covers, state.baskets) < state.settings.lowStock);
+  const low = state.products.filter(p => bancaleEquivalent(p, p.stock, state.covers, state.baskets, state.pastaStock, state.pastaLiquids, state.settings, state.pastaBoxes, state.pastaLids) < state.settings.lowStock);
 
   const threshold = state.settings.lowStock;
 
@@ -24,14 +24,161 @@ export default function Dashboard() {
 
   const hasBasketAlert = lowBaskets.length > 0 || lowJerricanProds.length > 0;
 
+  // ── Pasta low-stock alerts ──────────────────────────────────────────
+  const pastaThreshold = state.settings.lowStockPasta ?? 10; // in cartons
+
+  const pastaAlerts = [];
+
+  // Pasta Boxes
+  (state.pastaBoxes || []).forEach(pb => {
+    const cartonsAvail = (pb.stock || 0) / (12 * (1 + (state.settings.wastePastaBox ?? 2) / 100));
+    if (cartonsAvail < pastaThreshold) {
+      pastaAlerts.push({
+        type: 'box',
+        name: pb.name,
+        stock: pb.stock || 0,
+        cartons: cartonsAvail,
+        unit: state.lang === 'ar' ? 'قطعة' : state.lang === 'it' ? 'pezzi' : 'pcs',
+        icon: '📦',
+        label: state.lang === 'ar' ? 'علبة باستا' : state.lang === 'it' ? 'Scatola pasta' : 'Pasta Box',
+      });
+    }
+  });
+
+  // Pasta Lids
+  (state.pastaLids || []).forEach(pl => {
+    const cartonsAvail = (pl.stock || 0) / (12 * (1 + (state.settings.wastePastaLid ?? 2) / 100));
+    if (cartonsAvail < pastaThreshold) {
+      pastaAlerts.push({
+        type: 'lid',
+        name: pl.name,
+        stock: pl.stock || 0,
+        cartons: cartonsAvail,
+        unit: state.lang === 'ar' ? 'قطعة' : state.lang === 'it' ? 'pezzi' : 'pcs',
+        icon: '🔴',
+        label: state.lang === 'ar' ? 'غطاء باستا' : state.lang === 'it' ? 'Coperchio pasta' : 'Pasta Lid',
+      });
+    }
+  });
+
+  // Pasta Liquid
+  (state.pastaLiquids || []).forEach(liq => {
+    // Each carton needs 12 * liter (we use a generic 0.5L if not product-specific)
+    // Estimate: warn if liquid stock < threshold * 12 * 0.5L (conservative)
+    const litersPerCarton = 12 * 0.5 * (1 + (state.settings.wastePastaLiquid ?? 2) / 100);
+    const cartonsAvail = litersPerCarton > 0 ? (liq.stock || 0) / litersPerCarton : 0;
+    if (cartonsAvail < pastaThreshold) {
+      pastaAlerts.push({
+        type: 'liquid',
+        name: liq.name,
+        stock: liq.stock || 0,
+        cartons: cartonsAvail,
+        unit: state.lang === 'ar' ? 'لتر' : 'lt',
+        icon: '💧',
+        label: state.lang === 'ar' ? 'سائل باستا' : state.lang === 'it' ? 'Liquido pasta' : 'Pasta Liquid',
+      });
+    }
+  });
+
+  // Pasta Sponges
+  const spongeStock = state.pastaStock?.sponges || 0;
+  const spongeCartons = spongeStock / (12 * (1 + (state.settings.wastePastaSponge ?? 2) / 100));
+  if (spongeCartons < pastaThreshold) {
+    pastaAlerts.push({
+      type: 'sponge',
+      name: state.lang === 'ar' ? 'الإسفنجة' : state.lang === 'it' ? 'Spugna' : 'Sponge',
+      stock: spongeStock,
+      cartons: spongeCartons,
+      unit: state.lang === 'ar' ? 'قطعة' : state.lang === 'it' ? 'pezzi' : 'pcs',
+      icon: '🧽',
+      label: state.lang === 'ar' ? 'إسفنجة باستا' : state.lang === 'it' ? 'Spugna pasta' : 'Pasta Sponge',
+    });
+  }
+
+  // Pasta Sponge Lids
+  const spongeLidStock = state.pastaStock?.spongeLids || 0;
+  const spongeLidCartons = spongeLidStock / (12 * (1 + (state.settings.wastePastaSpongeLid ?? 2) / 100));
+  if (spongeLidCartons < pastaThreshold) {
+    pastaAlerts.push({
+      type: 'spongeLid',
+      name: state.lang === 'ar' ? 'غطاء الإسفنجة' : state.lang === 'it' ? 'Coperchio Spugna' : 'Sponge Lid',
+      stock: spongeLidStock,
+      cartons: spongeLidCartons,
+      unit: state.lang === 'ar' ? 'قطعة' : state.lang === 'it' ? 'pezzi' : 'pcs',
+      icon: '🔴',
+      label: state.lang === 'ar' ? 'غطاء إسفنجة باستا' : state.lang === 'it' ? 'Coperchio spugna pasta' : 'Pasta Sponge Lid',
+    });
+  }
+
+  const hasPastaAlert = pastaAlerts.length > 0;
+
   let totalTarget = 0, totalDone = 0;
-  progs.forEach(pr => pr.items.forEach(it => {
-    totalTarget += Number(it.target) || 0;
-    if (it.status === 'done') totalDone += Number(it.target) || 0;
-  }));
+  progs.forEach(pr => {
+    // Only sum line programs (daily, location, macro). Ignore 'amazon' and 'brazer' (Pasta).
+    if (pr.progType !== 'amazon' && pr.progType !== 'brazer') {
+      pr.items.forEach(it => {
+        totalTarget += Number(it.target) || 0;
+        if (it.status === 'done') totalDone += Number(it.target) || 0;
+      });
+    }
+  });
 
   const note = state.managerNotes[today] || '';
   const [search, setSearch] = useState('');
+
+  /* ── Worker schedule helper ── */
+  const renderWorkerSchedule = () => {
+    const workers = state.workers || [];
+    if (workers.length === 0) return null;
+
+    return (
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+          👥 {state.lang === 'ar' ? 'جدول تشغيل العمال وفترات الغداء اليوم' : 'Worker Schedules & Lunch Breaks Today'}
+        </h3>
+        <div className="grid cols-3" style={{ gap: 12 }}>
+          {workers.map(w => {
+            const assignedProgs = progs.filter(pr => pr.assignedWorkers?.includes(w.id));
+            return (
+              <div key={w.id} className="card" style={{ margin: 0, padding: 12, background: 'var(--panel2)', border: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text)' }}>👤 {w.name}</span>
+                  <span className="badge blue" style={{ fontSize: 11, padding: '3px 8px' }}>
+                    ⏰ {w.lunchTime || '—'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: 4, color: 'var(--yellow)' }}>
+                    {state.lang === 'ar' ? 'البرنامج المعين له:' : 'Assigned Program:'}
+                  </div>
+                  {assignedProgs.length === 0 ? (
+                    <span style={{ fontStyle: 'italic' }}>
+                      {state.lang === 'ar' ? 'غير معين لأي برنامج اليوم' : 'Not assigned to any program today'}
+                    </span>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {assignedProgs.map(pr => (
+                        <div key={pr.id} style={{ background: 'var(--bg)', padding: '6px 8px', borderRadius: 4, border: '1px solid var(--line)' }}>
+                          <div style={{ fontWeight: 'bold', color: 'var(--text)' }}>
+                            {pr.label || (state.lang === 'ar' ? 'برنامج اليوم' : 'Today\'s Program')}
+                          </div>
+                          {pr.notes && (
+                            <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 2, fontStyle: 'italic' }}>
+                              📝 {pr.notes}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   /* ── Worker view ── */
   if (state.role === 'worker') {
@@ -40,6 +187,7 @@ export default function Dashboard() {
     );
     return (
       <>
+        {renderWorkerSchedule()}
         {note && (
           <div className="notes-card" style={{ marginBottom: 16 }}>
             <h3>📋 {T.manager_notes} — {today}</h3>
@@ -63,7 +211,7 @@ export default function Dashboard() {
             {filtered.map(p => {
               const cv  = state.covers.find(x => x.id === p.coverId);
               const bk  = state.baskets.find(x => x.id === p.basketId);
-              const be  = bancaleEquivalent(p, p.stock, state.covers, state.baskets);
+              const be  = bancaleEquivalent(p, p.stock, state.covers, state.baskets, state.pastaStock, state.pastaLiquids, state.settings, state.pastaBoxes, state.pastaLids);
               const st  = stockStatus(be, state.settings.lowStock);
               return (
                 <div className="card" key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -137,6 +285,7 @@ export default function Dashboard() {
 
   return (
     <>
+      {renderWorkerSchedule()}
       {note && (
         <div className="notes-card">
           <h3>📋 {T.manager_notes} — {today}</h3>
@@ -194,7 +343,7 @@ export default function Dashboard() {
                 <tr key={p.id}>
                   <td>{p.name}</td>
                   <td>{p.company}</td>
-                  <td className="mono">{bancaleEquivalent(p, p.stock, state.covers, state.baskets).toFixed(1)}</td>
+                  <td className="mono">{bancaleEquivalent(p, p.stock, state.covers, state.baskets, state.pastaStock, state.pastaLiquids, state.settings, state.pastaBoxes, state.pastaLids).toFixed(1)}</td>
                 </tr>
               ))}
             </tbody>
@@ -249,6 +398,65 @@ export default function Dashboard() {
         </div>
       )}
 
+      {hasPastaAlert && (
+        <div className="card" style={{ borderColor: 'var(--red)', marginBottom: 16, background: 'rgba(220,38,38,0.04)' }}>
+          <h3 style={{ color: 'var(--red)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 22 }}>⚠️</span>
+            {state.lang === 'ar' ? 'تحذير — مخزون الباستا ناقص!' :
+             state.lang === 'it' ? 'Attenzione — scorte pasta in esaurimento!' :
+             'Warning — Pasta stock running low!'}
+            <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)', marginInlineStart: 8 }}>
+              {state.lang === 'ar' ? `(أقل من ${pastaThreshold} كرتونة)` :
+               state.lang === 'it' ? `(meno di ${pastaThreshold} cartoni)` :
+               `(under ${pastaThreshold} cartons)`}
+            </span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pastaAlerts.map((a, idx) => {
+              const isZero = a.cartons <= 0;
+              const pct = Math.min(100, (a.cartons / pastaThreshold) * 100);
+              return (
+                <div key={idx} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px', background: 'var(--bg)', borderRadius: 8,
+                  border: `1px solid ${isZero ? 'var(--red)' : 'rgba(220,38,38,0.3)'}`,
+                  gap: 12,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>{a.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14 }}>{a.name}</span>
+                        <span className="smallmuted" style={{ fontSize: 11 }}>— {a.label}</span>
+                      </div>
+                      {/* progress bar */}
+                      <div style={{ height: 6, background: 'var(--panel)', borderRadius: 4, overflow: 'hidden', width: '100%' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 4, transition: 'width .3s',
+                          width: `${pct}%`,
+                          background: isZero ? 'var(--red)' : pct < 40 ? 'var(--orange)' : 'var(--yellow)',
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'end', flexShrink: 0 }}>
+                    <div>
+                      <span className="mono" style={{ fontSize: 16, fontWeight: 800, color: isZero ? 'var(--red)' : 'var(--orange)' }}>
+                        {a.stock.toLocaleString()}
+                      </span>
+                      <span className="smallmuted" style={{ fontSize: 11, marginInlineStart: 4 }}>{a.unit}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                      ≈ <strong>{a.cartons.toFixed(1)}</strong> {state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="flex-between" style={{ marginBottom: 12 }}>
           <h3 style={{ margin: 0 }}>{T.today_program} — {today}</h3>
@@ -267,6 +475,9 @@ export default function Dashboard() {
 }
 
 function ProgramSummary({ pr, T, state }) {
+  const isPasta = pr.progType === 'brazer';
+  const isAmazon = pr.progType === 'amazon';
+
   return (
     <div className="prog-section">
       <div className="prog-header">
@@ -277,12 +488,20 @@ function ProgramSummary({ pr, T, state }) {
         <table className="sched-table">
           <thead>
             <tr>
-              <th>{T.col_time}</th>
               <th>{T.col_product}</th>
-              <th>{T.col_cover}</th>
-              <th>{T.col_basket}</th>
+              {isPasta && (
+                <>
+                  <th>{state.lang === 'ar' ? 'علبة الباستا' : 'Pasta Box'}</th>
+                  <th>{state.lang === 'ar' ? 'غطاء الباستا' : 'Pasta Lid'}</th>
+                </>
+              )}
+              {!isPasta && !isAmazon && (
+                <>
+                  <th>{T.col_cover}</th>
+                  <th>{T.col_basket}</th>
+                </>
+              )}
               <th>{T.col_target}</th>
-              <th>{T.col_kilos}</th>
               <th>{T.col_notes}</th>
               <th>{T.col_confirm}</th>
             </tr>
@@ -292,14 +511,25 @@ function ProgramSummary({ pr, T, state }) {
               const p = state.products.find(x => x.id === it.productId);
               const cv = state.covers.find(x => x.id === it.coverId);
               const bk = state.baskets.find(x => x.id === it.basketId);
+              const pb = state.pastaBoxes?.find(x => x.id === (it.pastaBoxId || p?.pastaBoxId));
+              const pl = state.pastaLids?.find(x => x.id === (it.pastaLidId || p?.pastaLidId));
+              
               return (
                 <tr key={ii} className={it.status === 'done' ? 'row-done' : 'row-pending'}>
-                  <td className="mono smallmuted">{it.time || '—'}</td>
                   <td><strong>{p ? p.name : '?'}</strong></td>
-                  <td className="smallmuted">{cv ? cv.name : '—'}</td>
-                  <td className="smallmuted">{bk ? bk.name : '—'}</td>
+                  {isPasta && (
+                    <>
+                      <td className="smallmuted">{pb ? pb.name : '—'}</td>
+                      <td className="smallmuted">{pl ? pl.name : '—'}</td>
+                    </>
+                  )}
+                  {!isPasta && !isAmazon && (
+                    <>
+                      <td className="smallmuted">{cv ? cv.name : '—'}</td>
+                      <td className="smallmuted">{bk ? bk.name : '—'}</td>
+                    </>
+                  )}
                   <td className="mono">{it.target || '—'}</td>
-                  <td className="mono">{it.kilos || '—'}</td>
                   <td className="smallmuted" style={{ maxWidth: 120 }}>{it.notes || ''}</td>
                   <td>
                     {it.status === 'done'

@@ -11,6 +11,10 @@ export default function Inventory() {
   const [stocking, setStocking] = useState(null);
   const [stockingCover, setStockingCover] = useState(null);
   const [stockingBasket, setStockingBasket] = useState(null);
+  const [stockingPasta, setStockingPasta] = useState(false);
+  const [stockingPastaLiquid, setStockingPastaLiquid] = useState(null);
+  const [stockingPastaBox, setStockingPastaBox] = useState(null);
+  const [stockingPastaLid, setStockingPastaLid] = useState(null);
   const [filterColor, setFilterColor] = useState('all');
   const [filterSize, setFilterSize] = useState('all');
 
@@ -42,12 +46,12 @@ export default function Inventory() {
   return (
     <>
       {/* ── Products labels stock ── */}
-      {state.products.length > 0 && (
+      {state.products.filter(p => !p.isPasta).length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
           <h3>{T.current_stock} — {T.tickets}</h3>
           <div className="grid cols-2">
-            {state.products.map(p => {
-              const be = bancaleEquivalent(p, p.stock, state.covers, state.baskets);
+            {state.products.filter(p => !p.isPasta).map(p => {
+              const be = bancaleEquivalent(p, p.stock, state.covers, state.baskets, state.pastaStock, state.pastaLiquids, state.settings, state.pastaBoxes, state.pastaLids);
               const st = stockStatus(be, state.settings.lowStock);
               const pct = Math.min(100, (be / (state.settings.lowStock * 3)) * 100);
               const color = st === 'ok' ? 'var(--green)' : st === 'warn' ? 'var(--orange)' : 'var(--red)';
@@ -83,6 +87,224 @@ export default function Inventory() {
           </div>
         </div>
       )}
+
+      {/* ── Pasta Abrasiva Stock ── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3>{state.lang === 'ar' ? 'مخزن الباستا والمواد الخام' : 'Pasta Stock & Raw Materials'}</h3>
+        <div className="grid cols-2">
+          {/* Sponges & Sponge Lids */}
+          {(() => {
+            const pastaThreshold = state.settings.lowStockPasta ?? 10;
+            const wasteSponge = state.settings.wastePastaSponge ?? 2;
+            const wasteSpongeLid = state.settings.wastePastaSpongeLid ?? 2;
+
+            const spongesStock = state.pastaStock?.sponges || 0;
+            const spongeLidsStock = state.pastaStock?.spongeLids || 0;
+
+            const spongeCartons = spongesStock / (12 * (1 + wasteSponge / 100));
+            const spongeLidCartons = spongeLidsStock / (12 * (1 + wasteSpongeLid / 100));
+
+            const spongeLow = spongeCartons < pastaThreshold;
+            const spongeZero = spongesStock <= 0;
+
+            const spongeLidLow = spongeLidCartons < pastaThreshold;
+            const spongeLidZero = spongeLidsStock <= 0;
+
+            return (
+              <div className="inv-card">
+                <div className="flex-between" style={{ marginBottom: 6 }}>
+                  <span style={{ fontWeight: 700 }}>{state.lang === 'ar' ? 'إسفنج الباستا وأغطية الإسفنج' : 'Pasta Sponges & Sponge Lids'}</span>
+                </div>
+                <table style={{ width: '100%' }}>
+                  <tbody>
+                    <tr style={{ background: spongeZero ? 'rgba(220,38,38,0.06)' : spongeLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
+                      <td style={{ padding: '6px 4px' }}>
+                        <span className="smallmuted">{state.lang === 'ar' ? 'الإسفنج' : 'Sponges'}</span>
+                        {spongeLow && (
+                          <span style={{ marginInlineStart: 8, fontSize: 11, color: spongeZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
+                            title={state.lang === 'it' ? `Solo ${spongeCartons.toFixed(1)} cartoni disponibili` : `${spongeCartons.toFixed(1)} كرتونة متاحة فقط`}>
+                            {spongeZero ? '🚨 نفد!' : `⚠️ ${spongeCartons.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="mono" style={{ padding: '6px 4px', textAlign: 'right', color: spongeZero ? 'var(--red)' : spongeLow ? 'var(--orange)' : undefined, fontWeight: spongeLow ? 700 : 400 }}>
+                        {spongesStock.toLocaleString()} {T.pieces}
+                      </td>
+                    </tr>
+                    <tr style={{ background: spongeLidZero ? 'rgba(220,38,38,0.06)' : spongeLidLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
+                      <td style={{ padding: '6px 4px' }}>
+                        <span className="smallmuted">{state.lang === 'ar' ? 'غطاء الإسفنج' : 'Sponge Lids'}</span>
+                        {spongeLidLow && (
+                          <span style={{ marginInlineStart: 8, fontSize: 11, color: spongeLidZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
+                            title={state.lang === 'it' ? `Solo ${spongeLidCartons.toFixed(1)} cartoni disponibili` : `${spongeLidCartons.toFixed(1)} كرتونة متاحة فقط`}>
+                            {spongeLidZero ? '🚨 نفد!' : `⚠️ ${spongeLidCartons.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="mono" style={{ padding: '6px 4px', textAlign: 'right', color: spongeLidZero ? 'var(--red)' : spongeLidLow ? 'var(--orange)' : undefined, fontWeight: spongeLidLow ? 700 : 400 }}>
+                        {spongeLidsStock.toLocaleString()} {T.pieces}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                {state.role === 'admin' && (
+                  <button style={{ marginTop: 8, fontSize: 12 }} onClick={() => setStockingPasta(true)}>
+                    + {T.add_stock}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Pasta Liquids Card */}
+          {(() => {
+            const pastaThreshold = state.settings.lowStockPasta ?? 10;
+            const wasteLiquid = state.settings.wastePastaLiquid ?? 2;
+            return (
+              <div className="inv-card">
+                <div className="flex-between" style={{ marginBottom: 6 }}>
+                  <span style={{ fontWeight: 700 }}>{state.lang === 'ar' ? 'مخزن سوائل الباستا' : 'Pasta Liquids Stock'}</span>
+                </div>
+                {(state.pastaLiquids || []).length === 0 ? (
+                  <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا يوجد سوائل مضافة' : 'No liquids added'}</div>
+                ) : (
+                  <table style={{ width: '100%' }}>
+                    <tbody>
+                      {state.pastaLiquids.map(pl => {
+                        const prodsUsingLiquid = (state.products || []).filter(p => p.isPasta && p.pastaLiquidId === pl.id);
+                        const firstProd = prodsUsingLiquid[0];
+                        const literPerPiece = firstProd ? (firstProd.liter || 0.5) : 0.5;
+                        const litersPerCarton = 12 * literPerPiece;
+                        const liquidNeededPerCarton = litersPerCarton * (1 + wasteLiquid / 100);
+                        const cartonsAvail = liquidNeededPerCarton > 0 ? (pl.stock || 0) / liquidNeededPerCarton : Infinity;
+
+                        const isLow = cartonsAvail < pastaThreshold;
+                        const isZero = pl.stock <= 0;
+
+                        return (
+                          <tr key={pl.id} style={{ background: isZero ? 'rgba(220,38,38,0.06)' : isLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
+                            <td style={{ padding: '6px 4px' }}>
+                              <span className="smallmuted" style={{ fontWeight: 600, fontSize: 13 }}>{pl.name}</span>
+                              {isLow && (
+                                <span style={{ marginInlineStart: 8, fontSize: 11, color: isZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
+                                  title={state.lang === 'it' ? `Solo ${cartonsAvail.toFixed(1)} cartoni disponibili` : `${cartonsAvail.toFixed(1)} كرتونة متاحة فقط`}>
+                                  {isZero ? '🚨 نفد!' : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                                </span>
+                              )}
+                            </td>
+                            <td className="mono" style={{ padding: '6px 4px', color: isZero ? 'var(--red)' : isLow ? 'var(--orange)' : undefined, fontWeight: isLow ? 700 : 400 }}>
+                              {(pl.stock || 0).toLocaleString()} {state.lang === 'ar' ? 'لتر' : 'Liters'}
+                            </td>
+                            {state.role === 'admin' && (
+                              <td style={{ textAlign: 'right', padding: '6px 4px' }}>
+                                <button style={{ fontSize: 10, padding: '2px 6px', display: 'inline-block' }} onClick={() => setStockingPastaLiquid(pl)}>
+                                  +
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Pasta Boxes Card */}
+          {(() => {
+            const pastaThreshold = state.settings.lowStockPasta ?? 10;
+            return (
+          <div className="inv-card" style={{ marginTop: 12 }}>
+            <div className="flex-between" style={{ marginBottom: 6 }}>
+              <span style={{ fontWeight: 700 }}>📦 {state.lang === 'ar' ? 'علب الباستا' : state.lang === 'it' ? 'Scatole pasta' : 'Pasta Boxes'}</span>
+            </div>
+            {(state.pastaBoxes || []).length === 0 ? (
+              <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا توجد علب مضافة' : 'No boxes added'}</div>
+            ) : (
+              <table style={{ width: '100%' }}>
+                <tbody>
+                  {state.pastaBoxes.map(pb => {
+                    const cartonsAvail = (pb.stock || 0) / (12 * (1 + (state.settings.wastePastaBox ?? 2) / 100));
+                    const isLow = cartonsAvail < pastaThreshold;
+                    const isZero = pb.stock <= 0;
+                    return (
+                    <tr key={pb.id} style={{ background: isZero ? 'rgba(220,38,38,0.06)' : isLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
+                      <td style={{ padding: '6px 4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{pb.name}</span>
+                        {isLow && (
+                          <span style={{ marginInlineStart: 8, fontSize: 11, color: isZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
+                            title={state.lang === 'it' ? `Solo ${cartonsAvail.toFixed(1)} cartoni disponibili` : `${cartonsAvail.toFixed(1)} كرتونة متاحة فقط`}>
+                            {isZero ? '🚨 نفد!' : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="mono" style={{ color: isZero ? 'var(--red)' : isLow ? 'var(--orange)' : undefined, fontWeight: isLow ? 700 : 400 }}>
+                        {(pb.stock || 0).toLocaleString()} {T.pieces}
+                      </td>
+                      {state.role === 'admin' && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button style={{ fontSize: 10, padding: '2px 6px', display: 'inline-block' }} onClick={() => setStockingPastaBox(pb)}>+</button>
+                        </td>
+                      )}
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+            );
+          })()}
+
+          {/* Pasta Lids Card */}
+          {(() => {
+            const pastaThreshold = state.settings.lowStockPasta ?? 10;
+            return (
+          <div className="inv-card" style={{ marginTop: 12 }}>
+            <div className="flex-between" style={{ marginBottom: 6 }}>
+              <span style={{ fontWeight: 700 }}>🔴 {state.lang === 'ar' ? 'أغطية الباستا' : state.lang === 'it' ? 'Coperchi pasta' : 'Pasta Lids'}</span>
+            </div>
+            {(state.pastaLids || []).length === 0 ? (
+              <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا توجد أغطية مضافة' : 'No lids added'}</div>
+            ) : (
+              <table style={{ width: '100%' }}>
+                <tbody>
+                  {state.pastaLids.map(pl => {
+                    const cartonsAvail = (pl.stock || 0) / (12 * (1 + (state.settings.wastePastaLid ?? 2) / 100));
+                    const isLow = cartonsAvail < pastaThreshold;
+                    const isZero = pl.stock <= 0;
+                    return (
+                    <tr key={pl.id} style={{ background: isZero ? 'rgba(220,38,38,0.06)' : isLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
+                      <td style={{ padding: '6px 4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{pl.name}</span>
+                        {isLow && (
+                          <span style={{ marginInlineStart: 8, fontSize: 11, color: isZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
+                            title={state.lang === 'it' ? `Solo ${cartonsAvail.toFixed(1)} cartoni disponibili` : `${cartonsAvail.toFixed(1)} كرتونة متاحة فقط`}>
+                            {isZero ? '🚨 نفد!' : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="mono" style={{ color: isZero ? 'var(--red)' : isLow ? 'var(--orange)' : undefined, fontWeight: isLow ? 700 : 400 }}>
+                        {(pl.stock || 0).toLocaleString()} {T.pieces}
+                      </td>
+                      {state.role === 'admin' && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button style={{ fontSize: 10, padding: '2px 6px', display: 'inline-block' }} onClick={() => setStockingPastaLid(pl)}>+</button>
+                        </td>
+                      )}
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+            );
+          })()}
+        </div>
+      </div>
 
       {/* ── Filters ── */}
       {(state.covers.length > 0 || state.baskets.length > 0) && (
@@ -229,6 +451,55 @@ export default function Inventory() {
           onClose={() => setStockingBasket(null)}
           onSave={(qty, reason) => addBasketStock(stockingBasket.id, qty, reason)} />
       )}
+      {stockingPasta && (
+        <PastaStockModal T={T} onClose={() => setStockingPasta(false)}
+          onSave={(adds, reason) => {
+            const updated = {
+              sponges: (state.pastaStock?.sponges || 0) + adds.sponges,
+              spongeLids: (state.pastaStock?.spongeLids || 0) + adds.spongeLids,
+            };
+            update({ pastaStock: updated });
+            addLog({ type: 'pasta_stock_add', adds, reason, by: state.role });
+            setStockingPasta(false);
+          }} />
+      )}
+      {stockingPastaLiquid && (
+        <AddStockModal T={T} title={state.lang === 'ar' ? `+ إضافة مخزون سائل الباستا — ${stockingPastaLiquid.name}` : `+ Add Pasta Liquid Stock — ${stockingPastaLiquid.name}`}
+          unit={state.lang === 'ar' ? 'لتر' : 'Liters'}
+          onClose={() => setStockingPastaLiquid(null)}
+          onSave={(qty, reason) => {
+            const updated = state.pastaLiquids.map(pl =>
+              pl.id !== stockingPastaLiquid.id ? pl : { ...pl, stock: (pl.stock || 0) + qty }
+            );
+            update({ pastaLiquids: updated });
+            addLog({ type: 'pasta_liquid_stock_add', name: stockingPastaLiquid.name, qty, reason, by: state.role });
+            setStockingPastaLiquid(null);
+          }} />
+      )}
+      {stockingPastaBox && (
+        <AddStockModal T={T} title={state.lang === 'ar' ? `+ تعبئة مخزون علب الباستا — ${stockingPastaBox.name}` : `+ Restock Pasta Box — ${stockingPastaBox.name}`}
+          onClose={() => setStockingPastaBox(null)}
+          onSave={(qty, reason) => {
+            const updated = state.pastaBoxes.map(pb =>
+              pb.id !== stockingPastaBox.id ? pb : { ...pb, stock: (pb.stock || 0) + qty }
+            );
+            update({ pastaBoxes: updated });
+            addLog({ type: 'pasta_box_stock_add', name: stockingPastaBox.name, qty, reason, by: state.role });
+            setStockingPastaBox(null);
+          }} />
+      )}
+      {stockingPastaLid && (
+        <AddStockModal T={T} title={state.lang === 'ar' ? `+ تعبئة مخزون أغطية الباستا — ${stockingPastaLid.name}` : `+ Restock Pasta Lid — ${stockingPastaLid.name}`}
+          onClose={() => setStockingPastaLid(null)}
+          onSave={(qty, reason) => {
+            const updated = state.pastaLids.map(pl =>
+              pl.id !== stockingPastaLid.id ? pl : { ...pl, stock: (pl.stock || 0) + qty }
+            );
+            update({ pastaLids: updated });
+            addLog({ type: 'pasta_lid_stock_add', name: stockingPastaLid.name, qty, reason, by: state.role });
+            setStockingPastaLid(null);
+          }} />
+      )}
     </>
   );
 }
@@ -267,20 +538,51 @@ function LabelStockModal({ product, T, onClose, onSave }) {
 }
 
 /* ── Generic Add Stock Modal ── */
-function AddStockModal({ T, title, onClose, onSave }) {
+function AddStockModal({ T, title, onClose, onSave, unit }) {
   const [qty, setQty] = useState(0);
   const [reason, setReason] = useState('');
   const toast = useToast();
   return (
     <Modal onClose={onClose} maxWidth={360}>
       <h3>{title}</h3>
-      <div className="field"><label>{T.qty} ({T.pieces})</label>
+      <div className="field"><label>{T.qty} ({unit || T.pieces})</label>
         <input autoFocus type="number" value={qty} onChange={e => setQty(Number(e.target.value) || 0)} /></div>
       <div className="field"><label>{T.reason}</label>
         <input value={reason} onChange={e => setReason(e.target.value)} placeholder={T.reason} /></div>
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={() => { if (qty > 0) { onSave(qty, reason); toast(T.success_added); } }}>{T.confirm}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Pasta Stock Modal ── */
+function PastaStockModal({ T, onClose, onSave }) {
+  const toast = useToast();
+  const [form, setForm] = useState({ sponges: 0, spongeLids: 0 });
+  const [reason, setReason] = useState('');
+  const set = (k, v) => setForm(f => ({ ...f, [k]: Number(v) || 0 }));
+  return (
+    <Modal onClose={onClose}>
+      <h3>{T.lang === 'ar' ? 'إضافة مخزون الباستا (قطع)' : 'Add Pasta Stock (pcs)'}</h3>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>{T.lang === 'ar' ? 'الإسفنج (قطعة)' : 'Sponges (pcs)'}</label>
+          <input type="number" value={form.sponges} onChange={e => set('sponges', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>{T.lang === 'ar' ? 'غطاء الإسفنج (قطعة)' : 'Sponge Lids (pcs)'}</label>
+          <input type="number" value={form.spongeLids} onChange={e => set('spongeLids', e.target.value)} />
+        </div>
+      </div>
+      <div className="field">
+        <label>{T.reason}</label>
+        <input value={reason} onChange={e => setReason(e.target.value)} placeholder={T.reason} />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={() => { onSave(form, reason); toast(T.success_added); }}>{T.confirm}</button>
       </div>
     </Modal>
   );
