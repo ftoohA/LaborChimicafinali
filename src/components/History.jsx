@@ -38,8 +38,8 @@ export default function History() {
                         <th style={{ textAlign: 'start' }}>{T.col_product}</th>
                         {pr.progType === 'brazer' && (
                           <>
-                            <th style={{ textAlign: 'start' }}>{state.lang === 'ar' ? 'علبة الباستا' : 'Pasta Box'}</th>
-                            <th style={{ textAlign: 'start' }}>{state.lang === 'ar' ? 'غطاء الباستا' : 'Pasta Lid'}</th>
+                            <th style={{ textAlign: 'start' }}>{state.lang === 'ar' ? 'علبة الباستا' : state.lang === 'it' ? 'Scatola pasta' : 'Pasta Box'}</th>
+                            <th style={{ textAlign: 'start' }}>{state.lang === 'ar' ? 'غطاء الباستا' : state.lang === 'it' ? 'Coperchio pasta' : 'Pasta Lid'}</th>
                           </>
                         )}
                         {pr.progType !== 'brazer' && pr.progType !== 'amazon' && (

@@ -90,7 +90,7 @@ export default function Inventory() {
 
       {/* ── Pasta Abrasiva Stock ── */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <h3>{state.lang === 'ar' ? 'مخزن الباستا والمواد الخام' : 'Pasta Stock & Raw Materials'}</h3>
+        <h3>{state.lang === 'ar' ? 'مخزن الباستا والمواد الخام' : state.lang === 'it' ? 'Magazzino pasta e materie prime' : 'Pasta Stock & Raw Materials'}</h3>
         <div className="grid cols-2">
           {/* Sponges & Sponge Lids */}
           {(() => {
@@ -113,17 +113,17 @@ export default function Inventory() {
             return (
               <div className="inv-card">
                 <div className="flex-between" style={{ marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700 }}>{state.lang === 'ar' ? 'إسفنج الباستا وأغطية الإسفنج' : 'Pasta Sponges & Sponge Lids'}</span>
+                  <span style={{ fontWeight: 700 }}>{state.lang === 'ar' ? 'إسفنج الباستا وأغطية الإسفنج' : state.lang === 'it' ? 'Spugne pasta e coperchi spugna' : 'Pasta Sponges & Sponge Lids'}</span>
                 </div>
                 <table style={{ width: '100%' }}>
                   <tbody>
                     <tr style={{ background: spongeZero ? 'rgba(220,38,38,0.06)' : spongeLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
                       <td style={{ padding: '6px 4px' }}>
-                        <span className="smallmuted">{state.lang === 'ar' ? 'الإسفنج' : 'Sponges'}</span>
+                        <span className="smallmuted">{state.lang === 'ar' ? 'الإسفنج' : state.lang === 'it' ? 'Spugne' : 'Sponges'}</span>
                         {spongeLow && (
                           <span style={{ marginInlineStart: 8, fontSize: 11, color: spongeZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
                             title={state.lang === 'it' ? `Solo ${spongeCartons.toFixed(1)} cartoni disponibili` : `${spongeCartons.toFixed(1)} كرتونة متاحة فقط`}>
-                            {spongeZero ? '🚨 نفد!' : `⚠️ ${spongeCartons.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                            {spongeZero ? (state.lang === 'ar' ? '🚨 نفد!' : state.lang === 'it' ? '🚨 Esaurito!' : '🚨 Sold out!') : `⚠️ ${spongeCartons.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
                           </span>
                         )}
                       </td>
@@ -133,11 +133,11 @@ export default function Inventory() {
                     </tr>
                     <tr style={{ background: spongeLidZero ? 'rgba(220,38,38,0.06)' : spongeLidLow ? 'rgba(255,165,0,0.04)' : 'transparent' }}>
                       <td style={{ padding: '6px 4px' }}>
-                        <span className="smallmuted">{state.lang === 'ar' ? 'غطاء الإسفنج' : 'Sponge Lids'}</span>
+                        <span className="smallmuted">{state.lang === 'ar' ? 'غطاء الإسفنج' : state.lang === 'it' ? 'Coperchi spugna' : 'Sponge Lids'}</span>
                         {spongeLidLow && (
                           <span style={{ marginInlineStart: 8, fontSize: 11, color: spongeLidZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
                             title={state.lang === 'it' ? `Solo ${spongeLidCartons.toFixed(1)} cartoni disponibili` : `${spongeLidCartons.toFixed(1)} كرتونة متاحة فقط`}>
-                            {spongeLidZero ? '🚨 نفد!' : `⚠️ ${spongeLidCartons.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                            {spongeLidZero ? (state.lang === 'ar' ? '🚨 نفد!' : state.lang === 'it' ? '🚨 Esaurito!' : '🚨 Sold out!') : `⚠️ ${spongeLidCartons.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
                           </span>
                         )}
                       </td>
@@ -163,10 +163,10 @@ export default function Inventory() {
             return (
               <div className="inv-card">
                 <div className="flex-between" style={{ marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700 }}>{state.lang === 'ar' ? 'مخزن سوائل الباستا' : 'Pasta Liquids Stock'}</span>
+                  <span style={{ fontWeight: 700 }}>{state.lang === 'ar' ? 'مخزن سوائل الباستا' : state.lang === 'it' ? 'Magazzino liquidi pasta' : 'Pasta Liquids Stock'}</span>
                 </div>
                 {(state.pastaLiquids || []).length === 0 ? (
-                  <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا يوجد سوائل مضافة' : 'No liquids added'}</div>
+                  <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا يوجد سوائل مضافة' : state.lang === 'it' ? 'Nessun liquido aggiunto' : 'No liquids added'}</div>
                 ) : (
                   <table style={{ width: '100%' }}>
                     <tbody>
@@ -188,12 +188,12 @@ export default function Inventory() {
                               {isLow && (
                                 <span style={{ marginInlineStart: 8, fontSize: 11, color: isZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
                                   title={state.lang === 'it' ? `Solo ${cartonsAvail.toFixed(1)} cartoni disponibili` : `${cartonsAvail.toFixed(1)} كرتونة متاحة فقط`}>
-                                  {isZero ? '🚨 نفد!' : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                                  {isZero ? (state.lang === 'ar' ? '🚨 نفد!' : state.lang === 'it' ? '🚨 Esaurito!' : '🚨 Sold out!') : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
                                 </span>
                               )}
                             </td>
                             <td className="mono" style={{ padding: '6px 4px', color: isZero ? 'var(--red)' : isLow ? 'var(--orange)' : undefined, fontWeight: isLow ? 700 : 400 }}>
-                              {(pl.stock || 0).toLocaleString()} {state.lang === 'ar' ? 'لتر' : 'Liters'}
+                              {(pl.stock || 0).toLocaleString()} {state.lang === 'ar' ? 'لتر' : state.lang === 'it' ? 'Litri' : 'Liters'}
                             </td>
                             {state.role === 'admin' && (
                               <td style={{ textAlign: 'right', padding: '6px 4px' }}>
@@ -221,7 +221,7 @@ export default function Inventory() {
               <span style={{ fontWeight: 700 }}>📦 {state.lang === 'ar' ? 'علب الباستا' : state.lang === 'it' ? 'Scatole pasta' : 'Pasta Boxes'}</span>
             </div>
             {(state.pastaBoxes || []).length === 0 ? (
-              <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا توجد علب مضافة' : 'No boxes added'}</div>
+              <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا توجد علب مضافة' : state.lang === 'it' ? 'Nessuna scatola aggiunta' : 'No boxes added'}</div>
             ) : (
               <table style={{ width: '100%' }}>
                 <tbody>
@@ -236,7 +236,7 @@ export default function Inventory() {
                         {isLow && (
                           <span style={{ marginInlineStart: 8, fontSize: 11, color: isZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
                             title={state.lang === 'it' ? `Solo ${cartonsAvail.toFixed(1)} cartoni disponibili` : `${cartonsAvail.toFixed(1)} كرتونة متاحة فقط`}>
-                            {isZero ? '🚨 نفد!' : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                            {isZero ? (state.lang === 'ar' ? '🚨 نفد!' : state.lang === 'it' ? '🚨 Esaurito!' : '🚨 Sold out!') : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
                           </span>
                         )}
                       </td>
@@ -267,7 +267,7 @@ export default function Inventory() {
               <span style={{ fontWeight: 700 }}>🔴 {state.lang === 'ar' ? 'أغطية الباستا' : state.lang === 'it' ? 'Coperchi pasta' : 'Pasta Lids'}</span>
             </div>
             {(state.pastaLids || []).length === 0 ? (
-              <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا توجد أغطية مضافة' : 'No lids added'}</div>
+              <div className="empty" style={{ padding: 12 }}>{state.lang === 'ar' ? 'لا توجد أغطية مضافة' : state.lang === 'it' ? 'Nessun coperchio aggiunto' : 'No lids added'}</div>
             ) : (
               <table style={{ width: '100%' }}>
                 <tbody>
@@ -282,7 +282,7 @@ export default function Inventory() {
                         {isLow && (
                           <span style={{ marginInlineStart: 8, fontSize: 11, color: isZero ? 'var(--red)' : 'var(--orange)', fontWeight: 700 }}
                             title={state.lang === 'it' ? `Solo ${cartonsAvail.toFixed(1)} cartoni disponibili` : `${cartonsAvail.toFixed(1)} كرتونة متاحة فقط`}>
-                            {isZero ? '🚨 نفد!' : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
+                            {isZero ? (state.lang === 'ar' ? '🚨 نفد!' : state.lang === 'it' ? '🚨 Esaurito!' : '🚨 Sold out!') : `⚠️ ${cartonsAvail.toFixed(1)} ${state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'cartoni' : 'cartons'}`}
                           </span>
                         )}
                       </td>
@@ -452,7 +452,7 @@ export default function Inventory() {
           onSave={(qty, reason) => addBasketStock(stockingBasket.id, qty, reason)} />
       )}
       {stockingPasta && (
-        <PastaStockModal T={T} onClose={() => setStockingPasta(false)}
+        <PastaStockModal T={T} lang={state.lang} onClose={() => setStockingPasta(false)}
           onSave={(adds, reason) => {
             const updated = {
               sponges: (state.pastaStock?.sponges || 0) + adds.sponges,
@@ -464,8 +464,8 @@ export default function Inventory() {
           }} />
       )}
       {stockingPastaLiquid && (
-        <AddStockModal T={T} title={state.lang === 'ar' ? `+ إضافة مخزون سائل الباستا — ${stockingPastaLiquid.name}` : `+ Add Pasta Liquid Stock — ${stockingPastaLiquid.name}`}
-          unit={state.lang === 'ar' ? 'لتر' : 'Liters'}
+        <AddStockModal T={T} title={state.lang === 'ar' ? `+ إضافة مخزون سائل الباستا — ${stockingPastaLiquid.name}` : state.lang === 'it' ? `+ Aggiungi stock liquido pasta — ${stockingPastaLiquid.name}` : `+ Add Pasta Liquid Stock — ${stockingPastaLiquid.name}`}
+          unit={state.lang === 'ar' ? 'لتر' : state.lang === 'it' ? 'Litri' : 'Liters'}
           onClose={() => setStockingPastaLiquid(null)}
           onSave={(qty, reason) => {
             const updated = state.pastaLiquids.map(pl =>
@@ -477,7 +477,7 @@ export default function Inventory() {
           }} />
       )}
       {stockingPastaBox && (
-        <AddStockModal T={T} title={state.lang === 'ar' ? `+ تعبئة مخزون علب الباستا — ${stockingPastaBox.name}` : `+ Restock Pasta Box — ${stockingPastaBox.name}`}
+        <AddStockModal T={T} title={state.lang === 'ar' ? `+ تعبئة مخزون علب الباستا — ${stockingPastaBox.name}` : state.lang === 'it' ? `+ Rifornisci scatole pasta — ${stockingPastaBox.name}` : `+ Restock Pasta Box — ${stockingPastaBox.name}`}
           onClose={() => setStockingPastaBox(null)}
           onSave={(qty, reason) => {
             const updated = state.pastaBoxes.map(pb =>
@@ -489,7 +489,7 @@ export default function Inventory() {
           }} />
       )}
       {stockingPastaLid && (
-        <AddStockModal T={T} title={state.lang === 'ar' ? `+ تعبئة مخزون أغطية الباستا — ${stockingPastaLid.name}` : `+ Restock Pasta Lid — ${stockingPastaLid.name}`}
+        <AddStockModal T={T} title={state.lang === 'ar' ? `+ تعبئة مخزون أغطية الباستا — ${stockingPastaLid.name}` : state.lang === 'it' ? `+ Rifornisci coperchi pasta — ${stockingPastaLid.name}` : `+ Restock Pasta Lid — ${stockingPastaLid.name}`}
           onClose={() => setStockingPastaLid(null)}
           onSave={(qty, reason) => {
             const updated = state.pastaLids.map(pl =>
@@ -558,21 +558,21 @@ function AddStockModal({ T, title, onClose, onSave, unit }) {
 }
 
 /* ── Pasta Stock Modal ── */
-function PastaStockModal({ T, onClose, onSave }) {
+function PastaStockModal({ T, lang, onClose, onSave }) {
   const toast = useToast();
   const [form, setForm] = useState({ sponges: 0, spongeLids: 0 });
   const [reason, setReason] = useState('');
   const set = (k, v) => setForm(f => ({ ...f, [k]: Number(v) || 0 }));
   return (
     <Modal onClose={onClose}>
-      <h3>{T.lang === 'ar' ? 'إضافة مخزون الباستا (قطع)' : 'Add Pasta Stock (pcs)'}</h3>
+      <h3>{lang === 'ar' ? 'إضافة مخزون الباستا (قطع)' : lang === 'it' ? 'Aggiungi stock pasta (pz)' : 'Add Pasta Stock (pcs)'}</h3>
       <div className="grid cols-2">
         <div className="field">
-          <label>{T.lang === 'ar' ? 'الإسفنج (قطعة)' : 'Sponges (pcs)'}</label>
+          <label>{lang === 'ar' ? 'الإسفنج (قطعة)' : lang === 'it' ? 'Spugne (pz)' : 'Sponges (pcs)'}</label>
           <input type="number" value={form.sponges} onChange={e => set('sponges', e.target.value)} />
         </div>
         <div className="field">
-          <label>{T.lang === 'ar' ? 'غطاء الإسفنج (قطعة)' : 'Sponge Lids (pcs)'}</label>
+          <label>{lang === 'ar' ? 'غطاء الإسفنج (قطعة)' : lang === 'it' ? 'Coperchi spugna (pz)' : 'Sponge Lids (pcs)'}</label>
           <input type="number" value={form.spongeLids} onChange={e => set('spongeLids', e.target.value)} />
         </div>
       </div>

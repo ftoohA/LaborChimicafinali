@@ -1,15 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Cairo:wght@400;600;700&display=swap');
 
 :root {
-  --bg: #15181c;
-  --panel: #1f242b;
-  --panel2: #262c34;
-  --line: #343c46;
-  --text: #eef1f3;
-  --muted: #8b96a3;
-  --yellow: #f2b705;
-  --orange: #e85d04;
-  --green: #2d9d6f;
+  --bg: #0f1511;
+  --panel: #18211b;
+  --panel2: #1f2a22;
+  --line: #2c3a30;
+  --text: #eaf2ec;
+  --muted: #8aa093;
+  --brand: #449b23;
+  --brand-light: #a1c04f;
+  --yellow: #a1c04f;
+  --orange: #e0892b;
+  --green: #57a832;
   --red: #d6473a;
   --blue: #3d8bdb;
 }
@@ -44,8 +46,8 @@ header {
   flex-wrap: wrap;
 }
 
-.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: .5px; }
-.logo .dot { width: 12px; height: 12px; background: var(--yellow); border-radius: 2px; transform: rotate(45deg); }
+.logo { display: flex; align-items: center; }
+.logo img { display: block; height: 40px; background: #fff; padding: 6px 12px; border-radius: 8px; }
 .spacer { flex: 1; }
 
 select, button, input, textarea { font-family: inherit; font-size: 14px; }
@@ -71,7 +73,7 @@ button {
 
 button:hover { border-color: var(--yellow); }
 button.primary { background: var(--yellow); color: #15181c; border-color: var(--yellow); }
-button.primary:hover { background: #ffd23f; }
+button.primary:hover { background: var(--brand-light); }
 button.danger { background: var(--red); border-color: var(--red); color: #fff; }
 button.ghost { background: transparent; border-color: transparent; }
 button.ghost:hover { border-color: var(--line); }

@@ -847,7 +847,7 @@ function AddProgramModal({ date, T, state, onClose, onSave }) {
           <thead>
             <tr style={{ color: 'var(--muted)', fontSize: 11 }}>
               {isLiquidPrep ? (
-                <>{['السائل', state.lang === 'ar' ? 'الهدف (لتر)' : 'Obiettivo (litri)', T.col_notes, ''].map((h, i) => <th key={i} style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{h}</th>)}</>
+                <>{[state.lang === 'ar' ? 'السائل' : state.lang === 'it' ? 'Liquido' : 'Liquid', state.lang === 'ar' ? 'الهدف (لتر)' : 'Obiettivo (litri)', T.col_notes, ''].map((h, i) => <th key={i} style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{h}</th>)}</>
               ) : (
                 <>
                   <th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{T.col_product}</th>

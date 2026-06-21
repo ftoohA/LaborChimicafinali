@@ -24,8 +24,8 @@ export default function App() {
 
   if (!state.loaded) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', gap: 16, color: 'var(--muted)' }}>
-      <div style={{ width: 40, height: 40, border: '3px solid var(--line)', borderTopColor: 'var(--yellow)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <span style={{ fontSize: 14 }}>جاري التحميل...</span>
+      <div style={{ width: 40, height: 40, border: '3px solid var(--line)', borderTopColor: 'var(--brand)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <span style={{ fontSize: 14 }}>Caricamento...</span>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -38,7 +38,7 @@ export default function App() {
     <div id="app">
       <div className="hazard" />
       <header>
-        <div className="logo"><img src="https://happycarcare.it/wp-content/uploads/2021/04/logo-laborchimica-footer.svg" alt="Laborchimica" style={{ height: 32, marginInlineEnd: 8, verticalAlign: 'middle' }} /><div className="dot" />{T.title}</div>
+        <div className="logo"><img src="https://happycarcare.it/wp-content/uploads/2021/04/logo-laborchimica-footer.svg" alt="Laborchimica" /></div>
         <div className="spacer" />
         <span className="tag">{state.role === 'admin' ? T.role_admin : T.role_worker}</span>
         <select value={state.lang} onChange={e => update({ lang: e.target.value })}>

@@ -71,7 +71,7 @@ export default function Products() {
                 </div>
                 <div style={{ marginTop: 8 }}>
                   <span className={`badge ${st}`}>
-                    {be.toFixed(1)} {p.isPasta ? (state.lang === 'ar' ? 'كرتونة' : 'Cartons') : T.bancale_equiv}
+                    {be.toFixed(1)} {p.isPasta ? (state.lang === 'ar' ? 'كرتونة' : state.lang === 'it' ? 'Cartoni' : 'Cartons') : T.bancale_equiv}
                   </span>
                   {p.isPasta && (
                     <>
@@ -462,7 +462,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
                   <input
                     className="input-sm"
                     style={{ flex: 2 }}
-                    placeholder="اسم المكون (مثال: ماء، حمض...)"
+                    placeholder={T.dir === 'rtl' ? 'اسم المكون (مثال: ماء، حمض...)' : 'Nome ingrediente (es: acqua, acido...)'}
                     value={ing.name}
                     onChange={e => updateRecipeIngredient(ing.id || idx, 'name', e.target.value)}
                   />
@@ -471,7 +471,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
                     type="number"
                     step="any"
                     style={{ flex: 1, minWidth: 80 }}
-                    placeholder="النسبة"
+                    placeholder={T.dir === 'rtl' ? 'النسبة' : 'Proporzione'}
                     value={ing.ratio}
                     onChange={e => updateRecipeIngredient(ing.id || idx, 'ratio', e.target.value)}
                   />

@@ -58,15 +58,15 @@ export default function Admin() {
   };
 
   const deletePastaBox = (id) => {
-    if (!confirm(state.lang === 'ar' ? 'هل أنت متأكد من الحذف؟' : 'Are you sure?')) return;
+    if (!confirm(state.lang === 'ar' ? 'هل أنت متأكد من الحذف؟' : state.lang === 'it' ? 'Sei sicuro di eliminare?' : 'Are you sure?')) return;
     update({ pastaBoxes: (state.pastaBoxes || []).filter(pb => pb.id !== id) });
-    toast(state.lang === 'ar' ? 'تم الحذف' : 'Deleted');
+    toast(state.lang === 'ar' ? 'تم الحذف' : state.lang === 'it' ? 'Eliminato' : 'Deleted');
   };
 
   const deletePastaLid = (id) => {
-    if (!confirm(state.lang === 'ar' ? 'هل أنت متأكد من الحذف؟' : 'Are you sure?')) return;
+    if (!confirm(state.lang === 'ar' ? 'هل أنت متأكد من الحذف؟' : state.lang === 'it' ? 'Sei sicuro di eliminare?' : 'Are you sure?')) return;
     update({ pastaLids: (state.pastaLids || []).filter(pl => pl.id !== id) });
-    toast(state.lang === 'ar' ? 'تم الحذف' : 'Deleted');
+    toast(state.lang === 'ar' ? 'تم الحذف' : state.lang === 'it' ? 'Eliminato' : 'Deleted');
   };
 
   const addPastaBoxStock = (id, qty, reason) => {
@@ -338,19 +338,19 @@ export default function Admin() {
       {/* Workers */}
       <div className="card">
         <div className="flex-between">
-          <h3 style={{ margin: 0 }}>👥 {state.lang === 'ar' ? 'إدارة العمال' : 'Manage Workers'}</h3>
+          <h3 style={{ margin: 0 }}>👥 {state.lang === 'ar' ? 'إدارة العمال' : state.lang === 'it' ? 'Gestione operai' : 'Manage Workers'}</h3>
           <button className="primary" onClick={() => setAddingWorker(true)}>
-            + {state.lang === 'ar' ? 'إضافة عامل' : 'Add Worker'}
+            + {state.lang === 'ar' ? 'إضافة عامل' : state.lang === 'it' ? 'Aggiungi operaio' : 'Add Worker'}
           </button>
         </div>
         {(!state.workers || state.workers.length === 0) ? (
-          <div className="empty">{state.lang === 'ar' ? 'لا يوجد عمال بعد' : 'No workers yet'}</div>
+          <div className="empty">{state.lang === 'ar' ? 'لا يوجد عمال بعد' : state.lang === 'it' ? 'Nessun operaio ancora' : 'No workers yet'}</div>
         ) : (
           <table style={{ marginTop: 14 }}>
             <thead>
               <tr>
-                <th>{state.lang === 'ar' ? 'اسم العامل' : 'Worker Name'}</th>
-                <th>{state.lang === 'ar' ? 'وقت الغداء' : 'Lunch Break Time'}</th>
+                <th>{state.lang === 'ar' ? 'اسم العامل' : state.lang === 'it' ? 'Nome operaio' : 'Worker Name'}</th>
+                <th>{state.lang === 'ar' ? 'وقت الغداء' : state.lang === 'it' ? 'Orario pausa pranzo' : 'Lunch Break Time'}</th>
                 <th>{T.actions}</th>
               </tr>
             </thead>
@@ -371,11 +371,11 @@ export default function Admin() {
 
       {/* Pasta Materials Stock */}
       <div className="card">
-        <h3 style={{ marginBottom: 14 }}>🧪 {state.lang === 'ar' ? 'مخزون خامات الباستا (Pasta Abrasiva)' : 'Pasta Abrasiva Materials Stock'}</h3>
+        <h3 style={{ marginBottom: 14 }}>🧪 {state.lang === 'ar' ? 'مخزون خامات الباستا (Pasta Abrasiva)' : state.lang === 'it' ? 'Magazzino materie prime (Pasta Abrasiva)' : 'Pasta Abrasiva Materials Stock'}</h3>
         <div className="grid cols-2" style={{ gap: 12 }}>
           {[
-            ['sponges', state.lang === 'ar' ? 'الإسفنج (Sponges)' : 'Sponges', '🧽'],
-            ['spongeLids', state.lang === 'ar' ? 'أغطية الإسفنج' : 'Sponge Lids', '🧢'],
+            ['sponges', state.lang === 'ar' ? 'الإسفنج (Sponges)' : state.lang === 'it' ? 'Spugne' : 'Sponges', '🧽'],
+            ['spongeLids', state.lang === 'ar' ? 'أغطية الإسفنج' : state.lang === 'it' ? 'Coperchi spugna' : 'Sponge Lids', '🧢'],
           ].map(([field, label, icon]) => {
             const stockVal = state.pastaStock?.[field] || 0;
             return (
@@ -389,7 +389,7 @@ export default function Admin() {
                   style={{ fontSize: 11, padding: '3px 8px', width: '100%' }}
                   onClick={() => setStockingPasta(field)}
                 >
-                  + {state.lang === 'ar' ? 'إضافة كمية' : 'Add Stock'}
+                  + {state.lang === 'ar' ? 'إضافة كمية' : state.lang === 'it' ? 'Aggiungi quantità' : 'Add Stock'}
                 </button>
               </div>
             );
@@ -400,16 +400,16 @@ export default function Admin() {
       {/* Pasta Boxes */}
       <div className="card">
         <div className="flex-between">
-          <h3 style={{ margin: 0 }}>📦 {state.lang === 'ar' ? 'إدارة علب الباستا' : 'Manage Pasta Boxes'}</h3>
-          <button className="primary" onClick={() => setAddingPastaBox(true)}>+ {state.lang === 'ar' ? 'إضافة علبة' : 'Add Box'}</button>
+          <h3 style={{ margin: 0 }}>📦 {state.lang === 'ar' ? 'إدارة علب الباستا' : state.lang === 'it' ? 'Gestione scatole pasta' : 'Manage Pasta Boxes'}</h3>
+          <button className="primary" onClick={() => setAddingPastaBox(true)}>+ {state.lang === 'ar' ? 'إضافة علبة' : state.lang === 'it' ? 'Aggiungi scatola' : 'Add Box'}</button>
         </div>
         {(!state.pastaBoxes || state.pastaBoxes.length === 0) ? (
-          <div className="empty">{state.lang === 'ar' ? 'لا توجد علب مضافة' : 'No boxes added'}</div>
+          <div className="empty">{state.lang === 'ar' ? 'لا توجد علب مضافة' : state.lang === 'it' ? 'Nessuna scatola aggiunta' : 'No boxes added'}</div>
         ) : (
           <table style={{ marginTop: 14 }}>
             <thead>
               <tr>
-                <th>{state.lang === 'ar' ? 'اسم العلبة' : 'Box Name'}</th>
+                <th>{state.lang === 'ar' ? 'اسم العلبة' : state.lang === 'it' ? 'Nome scatola' : 'Box Name'}</th>
                 <th>{T.color}</th>
                 <th>{T.size}</th>
                 <th>{T.stock_count}</th>
@@ -433,7 +433,7 @@ export default function Admin() {
                     <td>
                       <div className="row">
                         <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setStockingPastaBox(pb)}>
-                          + {state.lang === 'ar' ? 'إضافة مخزون' : 'Add Stock'}
+                          + {state.lang === 'ar' ? 'إضافة مخزون' : state.lang === 'it' ? 'Aggiungi stock' : 'Add Stock'}
                         </button>
                         <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deletePastaBox(pb.id)}>✕</button>
                       </div>
@@ -449,16 +449,16 @@ export default function Admin() {
       {/* Pasta Lids */}
       <div className="card">
         <div className="flex-between">
-          <h3 style={{ margin: 0 }}>🔴 {state.lang === 'ar' ? 'إدارة أغطية الباستا' : 'Manage Pasta Lids'}</h3>
-          <button className="primary" onClick={() => setAddingPastaLid(true)}>+ {state.lang === 'ar' ? 'إضافة غطاء' : 'Add Lid'}</button>
+          <h3 style={{ margin: 0 }}>🔴 {state.lang === 'ar' ? 'إدارة أغطية الباستا' : state.lang === 'it' ? 'Gestione coperchi pasta' : 'Manage Pasta Lids'}</h3>
+          <button className="primary" onClick={() => setAddingPastaLid(true)}>+ {state.lang === 'ar' ? 'إضافة غطاء' : state.lang === 'it' ? 'Aggiungi coperchio' : 'Add Lid'}</button>
         </div>
         {(!state.pastaLids || state.pastaLids.length === 0) ? (
-          <div className="empty">{state.lang === 'ar' ? 'لا توجد أغطية مضافة' : 'No lids added'}</div>
+          <div className="empty">{state.lang === 'ar' ? 'لا توجد أغطية مضافة' : state.lang === 'it' ? 'Nessun coperchio aggiunto' : 'No lids added'}</div>
         ) : (
           <table style={{ marginTop: 14 }}>
             <thead>
               <tr>
-                <th>{state.lang === 'ar' ? 'اسم الغطاء' : 'Lid Name'}</th>
+                <th>{state.lang === 'ar' ? 'اسم الغطاء' : state.lang === 'it' ? 'Nome coperchio' : 'Lid Name'}</th>
                 <th>{T.color}</th>
                 <th>{T.size}</th>
                 <th>{T.stock_count}</th>
@@ -482,7 +482,7 @@ export default function Admin() {
                     <td>
                       <div className="row">
                         <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setStockingPastaLid(pl)}>
-                          + {state.lang === 'ar' ? 'إضافة مخزون' : 'Add Stock'}
+                          + {state.lang === 'ar' ? 'إضافة مخزون' : state.lang === 'it' ? 'Aggiungi stock' : 'Add Stock'}
                         </button>
                         <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deletePastaLid(pl.id)}>✕</button>
                       </div>
@@ -498,23 +498,23 @@ export default function Admin() {
       {/* Pasta Liquids Stock */}
       <div className="card">
         <div className="flex-between">
-          <h3 style={{ margin: 0 }}>🧪 {state.lang === 'ar' ? 'إدارة سوائل الباستا (Liquids)' : 'Manage Pasta Liquids'}</h3>
+          <h3 style={{ margin: 0 }}>🧪 {state.lang === 'ar' ? 'إدارة سوائل الباستا (Liquids)' : state.lang === 'it' ? 'Gestione liquidi pasta' : 'Manage Pasta Liquids'}</h3>
           <button className="primary" onClick={() => setEditingPastaLiquid(false)}>
-            + {state.lang === 'ar' ? 'إضافة سائل باستا' : 'Add Pasta Liquid'}
+            + {state.lang === 'ar' ? 'إضافة سائل باستا' : state.lang === 'it' ? 'Aggiungi liquido pasta' : 'Add Pasta Liquid'}
           </button>
         </div>
         {(!state.pastaLiquids || state.pastaLiquids.length === 0) ? (
           <div className="empty" style={{ marginTop: 14 }}>
-            {state.lang === 'ar' ? 'لا توجد سوائل باستا مضافة بعد.' : 'No pasta liquids added yet.'}
+            {state.lang === 'ar' ? 'لا توجد سوائل باستا مضافة بعد.' : state.lang === 'it' ? 'Nessun liquido pasta aggiunto ancora.' : 'No pasta liquids added yet.'}
           </div>
         ) : (
           <table style={{ marginTop: 14 }}>
             <thead>
               <tr>
-                <th>{state.lang === 'ar' ? 'اسم السائل' : 'Liquid Name'}</th>
-                <th>{state.lang === 'ar' ? 'المخزون الحالي' : 'Current Stock'}</th>
-                <th>{state.lang === 'ar' ? 'المكونات (لكل 1 لتر)' : 'Ingredients (per 1L)'}</th>
-                <th>{state.lang === 'ar' ? 'خطوات التحضير اليدوية' : 'Handwritten Steps'}</th>
+                <th>{state.lang === 'ar' ? 'اسم السائل' : state.lang === 'it' ? 'Nome liquido' : 'Liquid Name'}</th>
+                <th>{state.lang === 'ar' ? 'المخزون الحالي' : state.lang === 'it' ? 'Stock attuale' : 'Current Stock'}</th>
+                <th>{state.lang === 'ar' ? 'المكونات (لكل 1 لتر)' : state.lang === 'it' ? 'Ingredienti (per 1L)' : 'Ingredients (per 1L)'}</th>
+                <th>{state.lang === 'ar' ? 'خطوات التحضير اليدوية' : state.lang === 'it' ? 'Passaggi di preparazione' : 'Handwritten Steps'}</th>
                 <th>{T.actions}</th>
               </tr>
             </thead>
@@ -535,7 +535,7 @@ export default function Admin() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12 }}>
                         {pl.recipe.map((ing, idx) => (
                           <div key={idx}>
-                            • {ing.name}: <span className="mono" style={{ color: 'var(--green)' }}>{ing.ratio} لتر/لتر</span>
+                            • {ing.name}: <span className="mono" style={{ color: 'var(--green)' }}>{ing.ratio} {state.lang === 'ar' ? 'لتر/لتر' : 'L/L'}</span>
                           </div>
                         ))}
                       </div>
@@ -556,7 +556,7 @@ export default function Admin() {
                         style={{ fontSize: 12, padding: '4px 10px' }} 
                         onClick={() => setStockingPastaLiquid(pl)}
                       >
-                        + {state.lang === 'ar' ? 'تعبئة' : 'Restock'}
+                        + {state.lang === 'ar' ? 'تعبئة' : state.lang === 'it' ? 'Rifornisci' : 'Restock'}
                       </button>
                       <button 
                         className="ghost" 
@@ -620,8 +620,8 @@ export default function Admin() {
         <AddStockModal 
           T={T} 
           title={`${T.add_stock} — ${
-            stockingPasta === 'sponges' ? (state.lang === 'ar' ? 'الإسفنج (Sponges)' : 'Sponges') :
-            (state.lang === 'ar' ? 'أغطية الإسفنج' : 'Sponge Lids')
+            stockingPasta === 'sponges' ? (state.lang === 'ar' ? 'الإسفنج (Sponges)' : state.lang === 'it' ? 'Spugne' : 'Sponges') :
+            (state.lang === 'ar' ? 'أغطية الإسفنج' : state.lang === 'it' ? 'Coperchi spugna' : 'Sponge Lids')
           }`}
           onClose={() => setStockingPasta(null)}
           onSave={(qty, reason) => addPastaStock(stockingPasta, qty, reason)} 
@@ -647,7 +647,7 @@ export default function Admin() {
       {stockingPastaLiquid && (
         <AddStockModal
           T={T}
-          title={`${state.lang === 'ar' ? 'تعبئة سائل باستا' : 'Restock Pasta Liquid'} — ${stockingPastaLiquid.name}`}
+          title={`${state.lang === 'ar' ? 'تعبئة سائل باستا' : state.lang === 'it' ? 'Rifornisci liquido pasta' : 'Restock Pasta Liquid'} — ${stockingPastaLiquid.name}`}
           onClose={() => setStockingPastaLiquid(null)}
           onSave={(qty, reason) => addPastaLiquidStock(stockingPastaLiquid.id, qty, reason)}
         />
@@ -656,8 +656,8 @@ export default function Admin() {
         <PastaMaterialModal 
           T={T} 
           lang={state.lang} 
-          title={state.lang === 'ar' ? 'إضافة علبة باستا جديدة' : 'Add New Pasta Box'}
-          labelName={state.lang === 'ar' ? 'اسم العلبة' : 'Box Name'}
+          title={state.lang === 'ar' ? 'إضافة علبة باستا جديدة' : state.lang === 'it' ? 'Aggiungi nuova scatola pasta' : 'Add New Pasta Box'}
+          labelName={state.lang === 'ar' ? 'اسم العلبة' : state.lang === 'it' ? 'Nome scatola' : 'Box Name'}
           onClose={() => setAddingPastaBox(false)}
           onSave={box => {
             update({ pastaBoxes: [...(state.pastaBoxes || []), box] });
@@ -670,8 +670,8 @@ export default function Admin() {
         <PastaMaterialModal 
           T={T} 
           lang={state.lang} 
-          title={state.lang === 'ar' ? 'إضافة غطاء باستا جديد' : 'Add New Pasta Lid'}
-          labelName={state.lang === 'ar' ? 'اسم الغطاء' : 'Lid Name'}
+          title={state.lang === 'ar' ? 'إضافة غطاء باستا جديد' : state.lang === 'it' ? 'Aggiungi nuovo coperchio pasta' : 'Add New Pasta Lid'}
+          labelName={state.lang === 'ar' ? 'اسم الغطاء' : state.lang === 'it' ? 'Nome coperchio' : 'Lid Name'}
           onClose={() => setAddingPastaLid(false)}
           onSave={lid => {
             update({ pastaLids: [...(state.pastaLids || []), lid] });
@@ -683,7 +683,7 @@ export default function Admin() {
       {stockingPastaBox && (
         <AddStockModal 
           T={T} 
-          title={`${state.lang === 'ar' ? 'تعبئة مخزون علب الباستا' : 'Restock Pasta Box'} — ${stockingPastaBox.name}`}
+          title={`${state.lang === 'ar' ? 'تعبئة مخزون علب الباستا' : state.lang === 'it' ? 'Rifornisci scatole pasta' : 'Restock Pasta Box'} — ${stockingPastaBox.name}`}
           onClose={() => setStockingPastaBox(null)}
           onSave={(qty, reason) => addPastaBoxStock(stockingPastaBox.id, qty, reason)}
         />
@@ -691,7 +691,7 @@ export default function Admin() {
       {stockingPastaLid && (
         <AddStockModal 
           T={T} 
-          title={`${state.lang === 'ar' ? 'تعبئة مخزون أغطية الباستا' : 'Restock Pasta Lid'} — ${stockingPastaLid.name}`}
+          title={`${state.lang === 'ar' ? 'تعبئة مخزون أغطية الباستا' : state.lang === 'it' ? 'Rifornisci coperchi pasta' : 'Restock Pasta Lid'} — ${stockingPastaLid.name}`}
           onClose={() => setStockingPastaLid(null)}
           onSave={(qty, reason) => addPastaLidStock(stockingPastaLid.id, qty, reason)}
         />
@@ -724,7 +724,7 @@ function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
 
   const handleSave = () => {
     if (!name.trim()) {
-      toast(lang === 'ar' ? 'الاسم مطلوب' : 'Name is required', true);
+      toast(lang === 'ar' ? 'الاسم مطلوب' : lang === 'it' ? 'Il nome è obbligatorio' : 'Name is required', true);
       return;
     }
     const cleanedRecipe = recipe
@@ -746,16 +746,16 @@ function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
 
   return (
     <Modal onClose={onClose} maxWidth={500}>
-      <h3>{existing ? (lang === 'ar' ? 'تعديل سائل باستا' : 'Edit Pasta Liquid') : (lang === 'ar' ? 'إضافة سائل باستا جديد' : 'Add New Pasta Liquid')}</h3>
+      <h3>{existing ? (lang === 'ar' ? 'تعديل سائل باستا' : lang === 'it' ? 'Modifica liquido pasta' : 'Edit Pasta Liquid') : (lang === 'ar' ? 'إضافة سائل باستا جديد' : lang === 'it' ? 'Aggiungi nuovo liquido pasta' : 'Add New Pasta Liquid')}</h3>
       
       <div className="grid cols-2" style={{ marginBottom: 12 }}>
         <div className="field">
-          <label>{lang === 'ar' ? 'اسم السائل' : 'Liquid Name'}</label>
-          <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="باستا بيضاء..." />
+          <label>{lang === 'ar' ? 'اسم السائل' : lang === 'it' ? 'Nome liquido' : 'Liquid Name'}</label>
+          <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={lang === 'ar' ? 'باستا بيضاء...' : 'Pasta bianca...'} />
         </div>
         {!existing && (
           <div className="field">
-            <label>{lang === 'ar' ? 'المخزون الابتدائي (لتر)' : 'Initial Stock (Liters)'}</label>
+            <label>{lang === 'ar' ? 'المخزون الابتدائي (لتر)' : lang === 'it' ? 'Stock iniziale (litri)' : 'Initial Stock (Liters)'}</label>
             <input type="number" value={stock} onChange={e => setStock(e.target.value)} />
           </div>
         )}
@@ -763,15 +763,15 @@ function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
 
       {/* Recipe */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginTop: 12 }}>
-        <label style={{ fontWeight: 'bold' }}>🧪 {lang === 'ar' ? 'مكونات السائل ونسب التحضير (لكل 1 لتر)' : 'Ingredients & Ratio (per 1 Liter)'}</label>
+        <label style={{ fontWeight: 'bold' }}>🧪 {lang === 'ar' ? 'مكونات السائل ونسب التحضير (لكل 1 لتر)' : lang === 'it' ? 'Ingredienti e proporzioni (per 1 litro)' : 'Ingredients & Ratio (per 1 Liter)'}</label>
         <button type="button" className="primary" style={{ padding: '2px 8px', fontSize: 11 }} onClick={addIngredient}>
-          + {lang === 'ar' ? 'إضافة مكون' : 'Add Ingredient'}
+          + {lang === 'ar' ? 'إضافة مكون' : lang === 'it' ? 'Aggiungi ingrediente' : 'Add Ingredient'}
         </button>
       </div>
 
       {recipe.length === 0 ? (
         <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic', margin: '8px 0' }}>
-          {lang === 'ar' ? 'لا توجد مكونات مضافة لطريقة التحضير بعد.' : 'No ingredients added for this liquid yet.'}
+          {lang === 'ar' ? 'لا توجد مكونات مضافة لطريقة التحضير بعد.' : lang === 'it' ? 'Nessun ingrediente aggiunto a questa ricetta.' : 'No ingredients added for this liquid yet.'}
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -780,7 +780,7 @@ function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
               <input
                 className="input-sm"
                 style={{ flex: 2 }}
-                placeholder={lang === 'ar' ? "اسم المكون (مثال: ماء)" : "Ingredient name"}
+                placeholder={lang === 'ar' ? "اسم المكون (مثال: ماء)" : lang === 'it' ? "Nome ingrediente (es: acqua)" : "Ingredient name"}
                 value={ing.name}
                 onChange={e => updateIngredient(ing.id || idx, 'name', e.target.value)}
               />
@@ -789,7 +789,7 @@ function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
                 type="number"
                 step="any"
                 style={{ flex: 1, minWidth: 80 }}
-                placeholder={lang === 'ar' ? "النسبة" : "Ratio"}
+                placeholder={lang === 'ar' ? "النسبة" : lang === 'it' ? "Proporzione" : "Ratio"}
                 value={ing.ratio}
                 onChange={e => updateIngredient(ing.id || idx, 'ratio', e.target.value)}
               />
@@ -809,11 +809,11 @@ function PastaLiquidModal({ existing, T, lang, onClose, onSave }) {
 
       {/* Handwritten instructions prepNotes */}
       <div className="field" style={{ marginTop: 14 }}>
-        <label style={{ fontWeight: 'bold' }}>📝 {lang === 'ar' ? 'خطوات التحضير اليدوية (للكيميائي)' : 'Handwritten Preparation Steps (for Chemist)'}</label>
+        <label style={{ fontWeight: 'bold' }}>📝 {lang === 'ar' ? 'خطوات التحضير اليدوية (للكيميائي)' : lang === 'it' ? 'Passaggi di preparazione (per il chimico)' : 'Handwritten Preparation Steps (for Chemist)'}</label>
         <textarea
           value={prepNotes}
           onChange={e => setPrepNotes(e.target.value)}
-          placeholder={lang === 'ar' ? 'اكتب خطوات التحضير بالتفصيل هنا ليقرأها الكيميائي...' : 'Write detailed manual steps for the chemist here...'}
+          placeholder={lang === 'ar' ? 'اكتب خطوات التحضير بالتفصيل هنا ليقرأها الكيميائي...' : lang === 'it' ? 'Scrivi qui i passaggi dettagliati per il chimico...' : 'Write detailed manual steps for the chemist here...'}
           style={{ minHeight: 80 }}
         />
       </div>
@@ -1039,21 +1039,21 @@ function WorkerModal({ T, lang, onClose, onSave }) {
 
   const handleSave = () => {
     if (!name.trim()) { 
-      toast(lang === 'ar' ? 'الاسم مطلوب' : 'Name is required', true); 
-      return; 
+      toast(lang === 'ar' ? 'الاسم مطلوب' : lang === 'it' ? 'Il nome è obbligatorio' : 'Name is required', true);
+      return;
     }
     onSave({ id: uid(), name: name.trim(), lunchTime: lunchTime.trim() });
   };
 
   return (
     <Modal onClose={onClose} maxWidth={360}>
-      <h3>{lang === 'ar' ? 'إضافة عامل جديد' : 'Add New Worker'}</h3>
+      <h3>{lang === 'ar' ? 'إضافة عامل جديد' : lang === 'it' ? 'Aggiungi nuovo operaio' : 'Add New Worker'}</h3>
       <div className="field" style={{ marginBottom: 12 }}>
-        <label>{lang === 'ar' ? 'اسم العامل' : 'Worker Name'}</label>
-        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="أحمد محمد..." />
+        <label>{lang === 'ar' ? 'اسم العامل' : lang === 'it' ? 'Nome operaio' : 'Worker Name'}</label>
+        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={lang === 'ar' ? 'أحمد محمد...' : 'Mario Rossi...'} />
       </div>
       <div className="field" style={{ marginBottom: 16 }}>
-        <label>{lang === 'ar' ? 'وقت الغداء' : 'Lunch Break Time'}</label>
+        <label>{lang === 'ar' ? 'وقت الغداء' : lang === 'it' ? 'Orario pausa pranzo' : 'Lunch Break Time'}</label>
         <input value={lunchTime} onChange={e => setLunchTime(e.target.value)} placeholder="12:00 - 12:30..." />
       </div>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
@@ -1098,7 +1098,7 @@ function PastaMaterialModal({ T, lang, title, labelName, onClose, onSave }) {
           <input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} />
         </div>
         <div className="field">
-          <label>{labelName} ({lang === 'ar' ? 'اختياري' : 'optional'})</label>
+          <label>{labelName} ({lang === 'ar' ? 'اختياري' : lang === 'it' ? 'opzionale' : 'optional'})</label>
           <input value={f.name} onChange={e => set('name', e.target.value)} placeholder={autoName() || `${labelName}...`} />
         </div>
       </div>

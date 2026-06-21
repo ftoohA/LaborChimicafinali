@@ -134,7 +134,7 @@ export default function Dashboard() {
     return (
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
-          👥 {state.lang === 'ar' ? 'جدول تشغيل العمال وفترات الغداء اليوم' : 'Worker Schedules & Lunch Breaks Today'}
+          👥 {state.lang === 'ar' ? 'جدول تشغيل العمال وفترات الغداء اليوم' : state.lang === 'it' ? 'Turni operai e pause pranzo di oggi' : 'Worker Schedules & Lunch Breaks Today'}
         </h3>
         <div className="grid cols-3" style={{ gap: 12 }}>
           {workers.map(w => {
@@ -149,18 +149,18 @@ export default function Dashboard() {
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
                   <div style={{ fontWeight: 'bold', marginBottom: 4, color: 'var(--yellow)' }}>
-                    {state.lang === 'ar' ? 'البرنامج المعين له:' : 'Assigned Program:'}
+                    {state.lang === 'ar' ? 'البرنامج المعين له:' : state.lang === 'it' ? 'Programma assegnato:' : 'Assigned Program:'}
                   </div>
                   {assignedProgs.length === 0 ? (
                     <span style={{ fontStyle: 'italic' }}>
-                      {state.lang === 'ar' ? 'غير معين لأي برنامج اليوم' : 'Not assigned to any program today'}
+                      {state.lang === 'ar' ? 'غير معين لأي برنامج اليوم' : state.lang === 'it' ? 'Non assegnato a nessun programma oggi' : 'Not assigned to any program today'}
                     </span>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {assignedProgs.map(pr => (
                         <div key={pr.id} style={{ background: 'var(--bg)', padding: '6px 8px', borderRadius: 4, border: '1px solid var(--line)' }}>
                           <div style={{ fontWeight: 'bold', color: 'var(--text)' }}>
-                            {pr.label || (state.lang === 'ar' ? 'برنامج اليوم' : 'Today\'s Program')}
+                            {pr.label || (state.lang === 'ar' ? 'برنامج اليوم' : state.lang === 'it' ? 'Programma di oggi' : 'Today\'s Program')}
                           </div>
                           {pr.notes && (
                             <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 2, fontStyle: 'italic' }}>
@@ -491,8 +491,8 @@ function ProgramSummary({ pr, T, state }) {
               <th>{T.col_product}</th>
               {isPasta && (
                 <>
-                  <th>{state.lang === 'ar' ? 'علبة الباستا' : 'Pasta Box'}</th>
-                  <th>{state.lang === 'ar' ? 'غطاء الباستا' : 'Pasta Lid'}</th>
+                  <th>{state.lang === 'ar' ? 'علبة الباستا' : state.lang === 'it' ? 'Scatola pasta' : 'Pasta Box'}</th>
+                  <th>{state.lang === 'ar' ? 'غطاء الباستا' : state.lang === 'it' ? 'Coperchio pasta' : 'Pasta Lid'}</th>
                 </>
               )}
               {!isPasta && !isAmazon && (

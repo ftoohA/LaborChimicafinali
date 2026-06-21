@@ -35,7 +35,7 @@ const REF_LOG   = (db) => doc(db, 'factory', 'log');
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState({
-    lang: localStorage.getItem('lang') || 'ar',
+    lang: localStorage.getItem('lang') || 'it',
     role: localStorage.getItem('role') || null,
     ...DEFAULTS,
     tab: 'dashboard',
