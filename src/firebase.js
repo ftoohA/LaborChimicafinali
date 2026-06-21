@@ -1,16 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
-// نشيل أي علامات اقتباس (' أو ") أو مسافات زائدة ممكن تكون اتحفظت بالغلط مع قيمة المتغير
-const clean = (v) => (typeof v === 'string' ? v.trim().replace(/^['"]+|['"]+$/g, '') : v);
-
 const firebaseConfig = {
-  apiKey:            clean(import.meta.env.VITE_FIREBASE_API_KEY),
-  authDomain:        clean(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId:         clean(import.meta.env.VITE_FIREBASE_PROJECT_ID),
-  storageBucket:     clean(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
-  messagingSenderId: clean(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
-  appId:             clean(import.meta.env.VITE_FIREBASE_APP_ID),
+  apiKey: "AIzaSyAhM7Ie2weCZPTFn-V4GBbiPd8b2kbXk3M",
+  authDomain: "databaselabrochimica.firebaseapp.com",
+  projectId: "databaselabrochimica",
+  storageBucket: "databaselabrochimica.firebasestorage.app",
+  messagingSenderId: "627809297640",
+  appId: "1:627809297640:web:d1b0885d37051fc80b155d",
+  measurementId: "G-V8D62VEW9B",
 };
 
 const app = initializeApp(firebaseConfig);
