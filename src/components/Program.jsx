@@ -764,11 +764,14 @@ export default function Program() {
           toast(T.success_added);
           setShowAddProg(false);
         };
-        // Each program type has its own dedicated entry form
+        // Each program type has its own dedicated entry form (focused fields, locked type)
         if (typeFilter === 'amazon') {
           return <AmazonProgramModal date={date} T={T} state={state} onClose={() => setShowAddProg(false)} onSave={saveProg} />;
         }
-        return <AddProgramModal date={date} T={T} state={state} initialType={typeFilter !== 'all' ? typeFilter : 'daily'} onClose={() => setShowAddProg(false)} onSave={saveProg} />;
+        return <AddProgramModal date={date} T={T} state={state}
+          initialType={typeFilter !== 'all' ? typeFilter : 'daily'}
+          lockType={typeFilter !== 'all'}
+          onClose={() => setShowAddProg(false)} onSave={saveProg} />;
       })()}
       {confirmItem && (
         <ConfirmCodeModal
@@ -785,7 +788,7 @@ export default function Program() {
 }
 
 /* ---- Add Program Modal ---- */
-function AddProgramModal({ date, T, state, initialType = 'daily', onClose, onSave }) {
+function AddProgramModal({ date, T, state, initialType = 'daily', lockType = false, onClose, onSave }) {
   const toast = useToast();
   const [label, setLabel] = useState('');
   const [progType, setProgType] = useState(initialType);
@@ -831,14 +834,16 @@ function AddProgramModal({ date, T, state, initialType = 'daily', onClose, onSav
 
   return (
     <Modal onClose={onClose} maxWidth={900}>
-      <h3>{T.add_program} — {date}</h3>
+      <h3>{T.add_program}{lockType ? ` · ${T[`prog_${progType}`]}` : ''} — {date}</h3>
       <div className="grid cols-2" style={{ marginBottom: 14 }}>
-        <div className="field"><label>{T.prog_label}</label><input value={label} onChange={e => setLabel(e.target.value)} placeholder={`${T.prog_daily}...`} /></div>
-        <div className="field"><label>{T.prog_type}</label>
-          <select value={progType} onChange={e => { setProgType(e.target.value); setRows([emptyRow()]); setPrepType('carton'); }}>
-            {PROG_TYPES.map(tp => <option key={tp} value={tp}>{T[`prog_${tp}`]}</option>)}
-          </select>
-        </div>
+        <div className="field"><label>{T.prog_label}</label><input value={label} onChange={e => setLabel(e.target.value)} placeholder={`${T[`prog_${progType}`]}...`} /></div>
+        {!lockType && (
+          <div className="field"><label>{T.prog_type}</label>
+            <select value={progType} onChange={e => { setProgType(e.target.value); setRows([emptyRow()]); setPrepType('carton'); }}>
+              {PROG_TYPES.map(tp => <option key={tp} value={tp}>{T[`prog_${tp}`]}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {(progType === 'daily' || progType === 'location' || progType === 'macro' || progType === 'brazer') && (
