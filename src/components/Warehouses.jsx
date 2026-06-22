@@ -93,10 +93,13 @@ export default function Warehouses() {
 
   return (
     <>
-      <div className="flex-between" style={{ marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-        <h2 style={{ margin: 0, fontSize: 20, color: 'var(--brand)' }}>📦 {tr(L, 'المخازن', 'Magazzini', 'Warehouses')}</h2>
-        {isAdmin && <button className="primary" onClick={() => setCreating(true)}>+ {tr(L, 'مخزن جديد', 'Nuovo magazzino', 'New Warehouse')}</button>}
-      </div>
+      <h2 style={{ margin: '0 0 12px', fontSize: 20, color: 'var(--brand)' }}>📦 {tr(L, 'المخازن', 'Magazzini', 'Warehouses')}</h2>
+      {isAdmin && (
+        <button className="primary" onClick={() => setCreating(true)}
+          style={{ width: '100%', padding: '14px', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+          ➕ {tr(L, 'إضافة مخزن جديد', 'Aggiungi nuovo magazzino', 'Add New Warehouse')}
+        </button>
+      )}
 
       {/* Custom warehouses */}
       {warehouses.map(wh => {
