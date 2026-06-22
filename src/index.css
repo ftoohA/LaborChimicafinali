@@ -47,7 +47,7 @@ header {
 }
 
 .logo { display: flex; align-items: center; }
-.logo img { display: block; height: 40px; background: #fff; padding: 6px 12px; border-radius: 8px; }
+.logo img { display: block; height: 38px; }
 .spacer { flex: 1; }
 
 select, button, input, textarea { font-family: inherit; font-size: 14px; }

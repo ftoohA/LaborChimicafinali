@@ -38,7 +38,7 @@ export default function App() {
     <div id="app">
       <div className="hazard" />
       <header>
-        <div className="logo"><img src="https://happycarcare.it/wp-content/uploads/2021/04/logo-laborchimica-footer.svg" alt="Laborchimica" /></div>
+        <div className="logo"><img src="/logo.svg" alt="Laborchimica" /></div>
         <div className="spacer" />
         <span className="tag">{state.role === 'admin' ? T.role_admin : T.role_worker}</span>
         <select value={state.lang} onChange={e => update({ lang: e.target.value })}>
