@@ -9,9 +9,10 @@ import Program from './components/Program';
 import History from './components/History';
 import Stats from './components/Stats';
 import Admin from './components/Admin';
+import Attendance from './components/Attendance';
 
-const TABS_ADMIN = ['dashboard', 'products', 'inventory', 'program', 'history', 'stats', 'admin'];
-const TABS_WORKER = ['dashboard', 'program', 'history'];
+const TABS_ADMIN = ['dashboard', 'products', 'inventory', 'program', 'attendance', 'history', 'stats', 'admin'];
+const TABS_WORKER = ['dashboard', 'program', 'attendance', 'history'];
 
 export default function App() {
   const { state, update } = useStore();
@@ -65,6 +66,7 @@ export default function App() {
         {state.tab === 'products'   && <Products />}
         {state.tab === 'inventory'  && <Inventory />}
         {state.tab === 'program'    && <Program />}
+        {state.tab === 'attendance' && <Attendance />}
         {state.tab === 'history'    && <History />}
         {state.tab === 'stats'      && <Stats />}
         {state.tab === 'admin'      && <Admin />}

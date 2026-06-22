@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
 import { I18N, ADMIN_PASS, WORKER_PASS } from '../i18n';
@@ -1178,25 +1178,56 @@ function WorkerModal({ T, lang, onClose, onSave }) {
   const toast = useToast();
   const [name, setName] = useState('');
   const [lunchTime, setLunchTime] = useState('12:00 - 12:30');
+  const [photo, setPhoto] = useState('');
+  const [details, setDetails] = useState('');
+  const fileRef = useRef();
+
+  const handlePhoto = (file) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 300;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      setPhoto(canvas.toDataURL('image/jpeg', 0.75));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
 
   const handleSave = () => {
-    if (!name.trim()) { 
+    if (!name.trim()) {
       toast(lang === 'ar' ? 'الاسم مطلوب' : lang === 'it' ? 'Il nome è obbligatorio' : 'Name is required', true);
       return;
     }
-    onSave({ id: uid(), name: name.trim(), lunchTime: lunchTime.trim() });
+    onSave({ id: uid(), name: name.trim(), lunchTime: lunchTime.trim(), photo, details: details.trim() });
   };
 
   return (
-    <Modal onClose={onClose} maxWidth={360}>
+    <Modal onClose={onClose} maxWidth={380}>
       <h3>{lang === 'ar' ? 'إضافة عامل جديد' : lang === 'it' ? 'Aggiungi nuovo operaio' : 'Add New Worker'}</h3>
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e.target.files && e.target.files[0])} />
+      <div className="row" style={{ gap: 12, marginBottom: 12, alignItems: 'center' }}>
+        {photo
+          ? <img src={photo} alt="" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--line)' }} />
+          : <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>👤</div>}
+        <button onClick={() => fileRef.current && fileRef.current.click()}>📷 {lang === 'ar' ? 'صورة العامل' : lang === 'it' ? 'Foto operaio' : 'Worker Photo'}</button>
+      </div>
       <div className="field" style={{ marginBottom: 12 }}>
         <label>{lang === 'ar' ? 'اسم العامل' : lang === 'it' ? 'Nome operaio' : 'Worker Name'}</label>
         <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={lang === 'ar' ? 'أحمد محمد...' : 'Mario Rossi...'} />
       </div>
-      <div className="field" style={{ marginBottom: 16 }}>
+      <div className="field" style={{ marginBottom: 12 }}>
         <label>{lang === 'ar' ? 'وقت الغداء' : lang === 'it' ? 'Orario pausa pranzo' : 'Lunch Break Time'}</label>
         <input value={lunchTime} onChange={e => setLunchTime(e.target.value)} placeholder="12:00 - 12:30..." />
+      </div>
+      <div className="field" style={{ marginBottom: 16 }}>
+        <label>{lang === 'ar' ? 'تفاصيل (اختياري)' : lang === 'it' ? 'Dettagli (opzionale)' : 'Details (optional)'}</label>
+        <textarea value={details} onChange={e => setDetails(e.target.value)} style={{ minHeight: 50 }} placeholder={lang === 'ar' ? 'تليفون، عنوان، ملاحظات...' : lang === 'it' ? 'Telefono, indirizzo, note...' : 'Phone, address, notes...'} />
       </div>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
         <button onClick={onClose}>{T.cancel}</button>
