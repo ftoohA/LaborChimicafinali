@@ -4,3 +4,5 @@ dist
 .env.local
 *.exe
 .vercel
+
+Laborchimica_*.xlsx
