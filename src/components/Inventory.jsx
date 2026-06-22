@@ -17,6 +17,16 @@ export default function Inventory() {
   const [stockingPastaLid, setStockingPastaLid] = useState(null);
   const [filterColor, setFilterColor] = useState('all');
   const [filterSize, setFilterSize] = useState('all');
+  const [addingFinished, setAddingFinished] = useState(false);
+
+  const addFinishedStock = (productId, qty, reason) => {
+    const fs = { ...(state.finishedStock || {}) };
+    fs[productId] = (fs[productId] || 0) + qty;
+    update({ finishedStock: fs });
+    const prod = state.products.find(p => p.id === productId);
+    addLog({ type: 'finished_stock_add', productId, product: prod?.code || prod?.name, qty, reason, by: state.role });
+    setAddingFinished(false);
+  };
 
   // Unique colors and sizes across covers + baskets
   const allColors = [...new Set([...state.covers, ...state.baskets].map(x => x.color).filter(Boolean))].sort();
@@ -45,6 +55,43 @@ export default function Inventory() {
 
   return (
     <>
+      {/* ── Finished Goods Warehouse (Amazon source) ── */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="flex-between">
+          <h3 style={{ margin: 0 }}>🏭 {state.lang === 'ar' ? 'مخزن المنتجات الجاهزة' : state.lang === 'it' ? 'Magazzino prodotti finiti' : 'Finished Goods Warehouse'}</h3>
+          {state.role === 'admin' && (
+            <button className="primary" onClick={() => setAddingFinished(true)}>+ {state.lang === 'ar' ? 'إضافة إنتاج' : state.lang === 'it' ? 'Aggiungi produzione' : 'Add Production'}</button>
+          )}
+        </div>
+        {Object.keys(state.finishedStock || {}).filter(id => (state.finishedStock[id] || 0) !== 0).length === 0 ? (
+          <div className="empty">{state.lang === 'ar' ? 'لا يوجد مخزون جاهز' : state.lang === 'it' ? 'Nessun prodotto finito' : 'No finished stock'}</div>
+        ) : (
+          <table style={{ marginTop: 14 }}>
+            <thead>
+              <tr>
+                <th>{T.col_product}</th>
+                <th>{state.lang === 'ar' ? 'المخزون (بانكاله)' : state.lang === 'it' ? 'Stock (bancale)' : 'Stock (bancale)'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(state.finishedStock || {}).filter(([, q]) => (q || 0) !== 0).map(([id, q]) => {
+                const prod = state.products.find(p => p.id === id);
+                const low = (q || 0) <= (state.settings.lowStock || 0);
+                return (
+                  <tr key={id}>
+                    <td style={{ fontWeight: 600 }}>{prod ? prod.name : id}</td>
+                    <td>
+                      <span className="mono" style={{ fontWeight: 700, color: low ? 'var(--orange)' : 'var(--green)' }}>{(q || 0).toLocaleString()}</span>
+                      {low && <span className="badge warn" style={{ marginInlineStart: 6 }}>⚠️ {state.lang === 'ar' ? 'منخفض' : state.lang === 'it' ? 'Basso' : 'Low'}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* ── Products labels stock ── */}
       {state.products.filter(p => !p.isPasta).length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -500,6 +547,10 @@ export default function Inventory() {
             setStockingPastaLid(null);
           }} />
       )}
+      {addingFinished && (
+        <FinishedModal lang={state.lang} T={T} products={state.products.filter(p => !p.isPasta)}
+          onClose={() => setAddingFinished(false)} onSave={addFinishedStock} />
+      )}
     </>
   );
 }
@@ -552,6 +603,41 @@ function AddStockModal({ T, title, onClose, onSave, unit }) {
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={() => { if (qty > 0) { onSave(qty, reason); toast(T.success_added); } }}>{T.confirm}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Finished Goods (production) Modal ── */
+function FinishedModal({ T, lang, products, onClose, onSave }) {
+  const toast = useToast();
+  const [productId, setProductId] = useState('');
+  const [qty, setQty] = useState(0);
+  const [reason, setReason] = useState('');
+  return (
+    <Modal onClose={onClose} maxWidth={400}>
+      <h3>🏭 {lang === 'ar' ? 'إضافة إنتاج للمخزن الجاهز' : lang === 'it' ? 'Aggiungi produzione finita' : 'Add Finished Production'}</h3>
+      <div className="field">
+        <label>{T.col_product}</label>
+        <select autoFocus value={productId} onChange={e => setProductId(e.target.value)}>
+          <option value="">— {lang === 'ar' ? 'اختر منتج' : lang === 'it' ? 'Seleziona prodotto' : 'Select product'} —</option>
+          {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <div className="field">
+        <label>{lang === 'ar' ? 'الكمية (بانكاله)' : lang === 'it' ? 'Quantità (bancale)' : 'Quantity (bancale)'}</label>
+        <input type="number" value={qty} onChange={e => setQty(Number(e.target.value) || 0)} />
+      </div>
+      <div className="field">
+        <label>{T.reason}</label>
+        <input value={reason} onChange={e => setReason(e.target.value)} placeholder={T.reason} />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={() => {
+          if (!productId) { toast(lang === 'ar' ? 'اختر منتج' : lang === 'it' ? 'Seleziona prodotto' : 'Select product', true); return; }
+          if (qty > 0) { onSave(productId, qty, reason); toast(T.success_added); }
+        }}>{T.confirm}</button>
       </div>
     </Modal>
   );
