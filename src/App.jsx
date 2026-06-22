@@ -10,8 +10,9 @@ import History from './components/History';
 import Stats from './components/Stats';
 import Admin from './components/Admin';
 import Attendance from './components/Attendance';
+import Warehouses from './components/Warehouses';
 
-const TABS_ADMIN = ['dashboard', 'products', 'inventory', 'program', 'attendance', 'history', 'stats', 'admin'];
+const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'inventory', 'program', 'attendance', 'history', 'stats', 'admin'];
 const TABS_WORKER = ['dashboard', 'program', 'attendance', 'history'];
 
 export default function App() {
@@ -64,6 +65,7 @@ export default function App() {
       <main>
         {state.tab === 'dashboard'  && <Dashboard />}
         {state.tab === 'products'   && <Products />}
+        {state.tab === 'warehouses' && <Warehouses />}
         {state.tab === 'inventory'  && <Inventory />}
         {state.tab === 'program'    && <Program />}
         {state.tab === 'attendance' && <Attendance />}
