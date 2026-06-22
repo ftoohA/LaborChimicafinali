@@ -376,7 +376,7 @@ export default function Admin() {
             <thead>
               <tr>
                 <th>{state.lang === 'ar' ? 'اسم العامل' : state.lang === 'it' ? 'Nome operaio' : 'Worker Name'}</th>
-                <th>{state.lang === 'ar' ? 'وقت الغداء' : state.lang === 'it' ? 'Orario pausa pranzo' : 'Lunch Break Time'}</th>
+                <th>🔒 {state.lang === 'ar' ? 'الرقم السري' : state.lang === 'it' ? 'Codice' : 'PIN'}</th>
                 <th>{T.actions}</th>
               </tr>
             </thead>
@@ -384,7 +384,7 @@ export default function Admin() {
               {state.workers.map(w => (
                 <tr key={w.id}>
                   <td style={{ fontWeight: 600 }}>{w.name}</td>
-                  <td className="mono">{w.lunchTime || '—'}</td>
+                  <td className="mono">{w.pin || '—'}</td>
                   <td>
                     <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deleteWorker(w.id)}>✕</button>
                   </td>
@@ -1177,7 +1177,7 @@ function CartonModal({ T, lang, onClose, onSave }) {
 function WorkerModal({ T, lang, onClose, onSave }) {
   const toast = useToast();
   const [name, setName] = useState('');
-  const [lunchTime, setLunchTime] = useState('12:00 - 12:30');
+  const [pin, setPin] = useState('');
   const [photo, setPhoto] = useState('');
   const [details, setDetails] = useState('');
   const fileRef = useRef();
@@ -1204,7 +1204,7 @@ function WorkerModal({ T, lang, onClose, onSave }) {
       toast(lang === 'ar' ? 'الاسم مطلوب' : lang === 'it' ? 'Il nome è obbligatorio' : 'Name is required', true);
       return;
     }
-    onSave({ id: uid(), name: name.trim(), lunchTime: lunchTime.trim(), photo, details: details.trim() });
+    onSave({ id: uid(), name: name.trim(), pin: pin.trim(), photo, details: details.trim() });
   };
 
   return (
@@ -1222,8 +1222,8 @@ function WorkerModal({ T, lang, onClose, onSave }) {
         <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={lang === 'ar' ? 'أحمد محمد...' : 'Mario Rossi...'} />
       </div>
       <div className="field" style={{ marginBottom: 12 }}>
-        <label>{lang === 'ar' ? 'وقت الغداء' : lang === 'it' ? 'Orario pausa pranzo' : 'Lunch Break Time'}</label>
-        <input value={lunchTime} onChange={e => setLunchTime(e.target.value)} placeholder="12:00 - 12:30..." />
+        <label>🔒 {lang === 'ar' ? 'الرقم السري (لتسجيل الوقت)' : lang === 'it' ? 'Codice segreto (per timbratura)' : 'Secret PIN (for time tracking)'}</label>
+        <input value={pin} onChange={e => setPin(e.target.value)} placeholder={lang === 'ar' ? 'مثال: 1234' : 'es: 1234'} />
       </div>
       <div className="field" style={{ marginBottom: 16 }}>
         <label>{lang === 'ar' ? 'تفاصيل (اختياري)' : lang === 'it' ? 'Dettagli (opzionale)' : 'Details (optional)'}</label>

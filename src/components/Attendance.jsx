@@ -25,11 +25,17 @@ export default function Attendance() {
   const fileRef = useRef();
   const pendingRef = useRef(null); // { workerId, action }
   const [manual, setManual] = useState(null); // worker being edited manually
+  const [pinPrompt, setPinPrompt] = useState(null); // { workerId, action }
 
   const isAdmin = state.role === 'admin';
   const workers = state.workers || [];
   const records = state.attendance || [];
   const recFor = (wid) => records.find(r => r.workerId === wid && r.date === today);
+
+  const breaksToday = (state.breaks || {})[today] || {};
+  const setBreak = (workerId, value) => {
+    update({ breaks: { ...(state.breaks || {}), [today]: { ...breaksToday, [workerId]: value } } });
+  };
 
   const downscale = (file, cb) => {
     if (file.size > 8 * 1024 * 1024) { toast(tr(L, 'الصورة كبيرة جداً', 'Immagine troppo grande', 'Image too large'), true); return; }
@@ -51,6 +57,13 @@ export default function Attendance() {
   const startCapture = (workerId, action) => {
     pendingRef.current = { workerId, action };
     if (fileRef.current) { fileRef.current.value = ''; fileRef.current.click(); }
+  };
+
+  // Require the worker's secret PIN before capturing the selfie (if a PIN is set)
+  const requestPunch = (workerId, action) => {
+    const w = workers.find(x => x.id === workerId);
+    if (w && w.pin) setPinPrompt({ workerId, action });
+    else startCapture(workerId, action);
   };
 
   const onFile = (e) => {
@@ -105,7 +118,7 @@ export default function Attendance() {
                       : <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>👤</div>}
                     <div>
                       <div style={{ fontWeight: 700 }}>{w.name}</div>
-                      <div className="smallmuted">{w.lunchTime || ''}</div>
+                      {breaksToday[w.id] && <div className="smallmuted">🍽️ {breaksToday[w.id]}</div>}
                     </div>
                   </div>
                   <table style={{ fontSize: 13 }}>
@@ -128,7 +141,7 @@ export default function Attendance() {
                   <div className="row" style={{ gap: 6 }}>
                     {status !== 'done' && (
                       <button className="primary" style={{ flex: 1, fontSize: 12 }}
-                        onClick={() => startCapture(w.id, status === 'none' ? 'in' : 'out')}>
+                        onClick={() => requestPunch(w.id, status === 'none' ? 'in' : 'out')}>
                         📸 {status === 'none' ? tr(L, 'دخول', 'Entrata', 'Clock In') : tr(L, 'خروج', 'Uscita', 'Clock Out')}
                       </button>
                     )}
@@ -143,6 +156,37 @@ export default function Attendance() {
         )}
       </div>
 
+      {/* ── Daily break schedule (separate, changes each day) ── */}
+      {workers.length > 0 && (
+        <div className="card">
+          <div className="flex-between" style={{ marginBottom: 2 }}>
+            <h3 style={{ margin: 0 }}>🍽️ {tr(L, 'جدول الراحات', 'Orari pause', 'Break Schedule')}</h3>
+            <span className="smallmuted">{today}</span>
+          </div>
+          <p className="smallmuted" style={{ marginTop: 4 }}>{tr(L, 'يتغيّر كل يوم حسب الشغل', 'Cambia ogni giorno secondo il lavoro', 'Changes daily based on work')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>{tr(L, 'العامل', 'Operaio', 'Worker')}</th>
+                <th>🍽️ {tr(L, 'وقت الراحة', 'Orario pausa', 'Break time')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workers.map(w => (
+                <tr key={w.id}>
+                  <td style={{ fontWeight: 600 }}>{w.name}</td>
+                  <td>
+                    {isAdmin
+                      ? <input className="input-sm" value={breaksToday[w.id] || ''} onChange={e => setBreak(w.id, e.target.value)} placeholder="12:00 - 12:30" style={{ width: 150 }} />
+                      : <span className="mono">{breaksToday[w.id] || '—'}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {manual && (
         <ManualModal L={L} T={T} worker={manual} rec={recFor(manual.id)} today={today}
           onClose={() => setManual(null)}
@@ -153,7 +197,41 @@ export default function Attendance() {
             setManual(null);
           }} />
       )}
+
+      {pinPrompt && (() => {
+        const w = workers.find(x => x.id === pinPrompt.workerId);
+        return (
+          <PinModal L={L} T={T} worker={w}
+            onClose={() => setPinPrompt(null)}
+            onConfirm={(entered) => {
+              if (entered === (w?.pin || '')) {
+                const a = pinPrompt; setPinPrompt(null); startCapture(a.workerId, a.action);
+              } else {
+                toast(tr(L, 'الرقم السري غلط', 'Codice errato', 'Wrong PIN'), true);
+              }
+            }} />
+        );
+      })()}
     </>
+  );
+}
+
+function PinModal({ L, T, worker, onClose, onConfirm }) {
+  const [pin, setPin] = useState('');
+  return (
+    <Modal onClose={onClose} maxWidth={300}>
+      <h3>🔒 {worker?.name}</h3>
+      <div className="field">
+        <label>{tr(L, 'أدخل رقمك السري', 'Inserisci il tuo codice', 'Enter your PIN')}</label>
+        <input autoFocus type="password" value={pin} onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && onConfirm(pin)}
+          placeholder="••••" style={{ textAlign: 'center', fontSize: 18, letterSpacing: 3 }} />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={() => onConfirm(pin)}>{T.confirm}</button>
+      </div>
+    </Modal>
   );
 }
 

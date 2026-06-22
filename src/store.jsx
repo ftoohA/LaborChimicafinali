@@ -29,6 +29,7 @@ const DEFAULTS = {
   cartonTypes: [],   // { id, name, size, stock, lowStock, waste }
   finishedStock: {}, // { [productId]: bancale } — finished goods warehouse (Amazon)
   attendance: [],    // { id, workerId, date, clockIn, clockInPhoto, clockOut, clockOutPhoto, manual }
+  breaks: {},        // { [date]: { [workerId]: "12:00 - 12:30" } } — daily break schedule (changes per day)
 };
 
 // Firestore document references
@@ -86,6 +87,7 @@ export function StoreProvider({ children }) {
           cartonTypes:  d.cartonTypes  ?? DEFAULTS.cartonTypes,
           finishedStock:d.finishedStock?? DEFAULTS.finishedStock,
           attendance:   d.attendance   ?? DEFAULTS.attendance,
+          breaks:       d.breaks       ?? DEFAULTS.breaks,
           dailyCodes:   d.dailyCodes   ?? DEFAULTS.dailyCodes,
         }));
       }
@@ -137,6 +139,7 @@ export function StoreProvider({ children }) {
             cartonTypes:  newState.cartonTypes,
             finishedStock:newState.finishedStock,
             attendance:   newState.attendance,
+            breaks:       newState.breaks,
           }),
           setDoc(REF_PROGS(db), { programs: newState.programs }),
           setDoc(REF_LOG(db),   { entries: newState.log.slice(-800) }),
@@ -151,7 +154,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   /* ── update() — replaces partial state and triggers save ── */
-  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'finishedStock', 'attendance']);
+  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'finishedStock', 'attendance', 'breaks']);
 
   const update = useCallback((partial) => {
     setState(s => {
