@@ -647,14 +647,20 @@ export default function Program() {
             <label style={{ fontSize: 11, marginBottom: 2 }}>{T.date}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{ width: 'auto', padding: '7px 10px' }} />
           </div>
-          <div>
-            <label style={{ fontSize: 11, marginBottom: 2 }}>{T.prog_type}</label>
-            <select value={typeFilter} onChange={e => update({ progTypeFilter: e.target.value })} style={{ width: 'auto' }}>
-              <option value="all">{T.all_types}</option>
-              {PROG_TYPES.map(tp => <option key={tp} value={tp}>{T[`prog_${tp}`]}</option>)}
-            </select>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 11, marginBottom: 2, display: 'block' }}>{T.prog_type}</label>
+            <div className="row wrap" style={{ gap: 6 }}>
+              <button className={typeFilter === 'all' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => update({ progTypeFilter: 'all' })}>{T.all_types}</button>
+              {PROG_TYPES.map(tp => {
+                const cnt = allProgs.filter(p => p.progType === tp).length;
+                return (
+                  <button key={tp} className={typeFilter === tp ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => update({ progTypeFilter: tp })}>
+                    {T[`prog_${tp}`]}{cnt > 0 ? ` (${cnt})` : ''}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ flex: 1 }} />
           {state.role === 'admin' && (
             <button className="primary" onClick={() => setShowAddProg(true)}>+ {T.add_program}</button>
           )}
