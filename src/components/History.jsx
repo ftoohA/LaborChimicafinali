@@ -1,14 +1,39 @@
+import { useState } from 'react';
 import { useStore } from '../store';
 import { I18N } from '../i18n';
+import { todayStr } from '../helpers';
+import { exportDayExcel } from '../exportExcel';
 import ProgBadge from './ProgBadge';
 
 export default function History() {
   const { state } = useStore();
   const T = I18N[state.lang];
+  const L = state.lang;
   const dates = Object.keys(state.programs).sort().reverse();
+  const [expDate, setExpDate] = useState(todayStr());
+
+  const doExport = () => {
+    exportDayExcel({
+      log: state.log, products: state.products, workers: state.workers, attendance: state.attendance,
+      cartonTypes: state.cartonTypes, covers: state.covers, baskets: state.baskets,
+      pastaBoxes: state.pastaBoxes, pastaLids: state.pastaLids, pastaLiquids: state.pastaLiquids,
+      date: expDate,
+    });
+  };
 
   return (
     <>
+      <div className="card" style={{ borderColor: 'var(--brand)' }}>
+        <h3 style={{ margin: '0 0 12px 0' }}>📊 {L === 'ar' ? 'تصدير تقرير اليوم (Excel)' : L === 'it' ? 'Esporta report giornaliero (Excel)' : 'Export Daily Report (Excel)'}</h3>
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} style={{ maxWidth: 180 }} />
+          <button className="primary" onClick={doExport}>⬇️ {L === 'ar' ? 'تنزيل Excel' : L === 'it' ? 'Scarica Excel' : 'Download Excel'}</button>
+        </div>
+        <p className="smallmuted" style={{ marginTop: 8, marginBottom: 0 }}>
+          {L === 'ar' ? 'يشمل كل حركات اليوم (إدخال/إخراج/إنتاج/طلبيات) والحضور.' : L === 'it' ? 'Include tutti i movimenti del giorno (entrate/uscite/produzione/ordini) e le presenze.' : 'Includes all day movements (in/out/production/orders) and attendance.'}
+        </p>
+      </div>
+
       <div className="card">
         <h3>{T.history}</h3>
         {dates.length === 0 ? (
