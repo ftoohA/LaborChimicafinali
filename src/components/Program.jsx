@@ -109,7 +109,10 @@ export default function Program() {
         ? { status: 'done', rows: pendingRows ?? makeRows(it).map(r => ({ ...r, done: true })) }
         : { status: 'pending', rows: makeRows(it).map(r => ({ ...r, done: false })) };
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
-      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids });
+      // Pasta (carton) production adds finished bancale to the warehouse
+      const fsPasta = { ...(state.finishedStock || {}) };
+      fsPasta[p.id] = (fsPasta[p.id] || 0) + (-sign) * target;
+      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, finishedStock: fsPasta });
     } else {
       const prog = allProgs[pi];
       const isAmazon = prog && prog.progType === 'amazon';
@@ -152,7 +155,10 @@ export default function Program() {
         const updatedBaskets = effectiveBasketId && p.jerricansPer > 0
           ? state.baskets.map(b => b.id !== effectiveBasketId ? b : { ...b, stock: (b.stock || 0) + sign * target * p.jerricansPer * (1 + s.wasteJerrican / 100) })
           : state.baskets;
-        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons });
+        // Production adds the produced bancale to the finished-goods warehouse
+        const fsLine = { ...(state.finishedStock || {}) };
+        fsLine[p.id] = (fsLine[p.id] || 0) + (-sign) * target;
+        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, finishedStock: fsLine });
       }
     }
     addLog({ type: action === 'done' ? 'produce' : 'undo', product: p.code, target, date, by: state.role });

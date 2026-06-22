@@ -17,16 +17,6 @@ export default function Inventory() {
   const [stockingPastaLid, setStockingPastaLid] = useState(null);
   const [filterColor, setFilterColor] = useState('all');
   const [filterSize, setFilterSize] = useState('all');
-  const [addingFinished, setAddingFinished] = useState(false);
-
-  const addFinishedStock = (productId, qty, reason) => {
-    const fs = { ...(state.finishedStock || {}) };
-    fs[productId] = (fs[productId] || 0) + qty;
-    update({ finishedStock: fs });
-    const prod = state.products.find(p => p.id === productId);
-    addLog({ type: 'finished_stock_add', productId, product: prod?.code || prod?.name, qty, reason, by: state.role });
-    setAddingFinished(false);
-  };
 
   // Unique colors and sizes across covers + baskets
   const allColors = [...new Set([...state.covers, ...state.baskets].map(x => x.color).filter(Boolean))].sort();
@@ -55,43 +45,6 @@ export default function Inventory() {
 
   return (
     <>
-      {/* ── Finished Goods Warehouse (Amazon source) ── */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="flex-between">
-          <h3 style={{ margin: 0 }}>🏭 {state.lang === 'ar' ? 'مخزن المنتجات الجاهزة' : state.lang === 'it' ? 'Magazzino prodotti finiti' : 'Finished Goods Warehouse'}</h3>
-          {state.role === 'admin' && (
-            <button className="primary" onClick={() => setAddingFinished(true)}>+ {state.lang === 'ar' ? 'إضافة إنتاج' : state.lang === 'it' ? 'Aggiungi produzione' : 'Add Production'}</button>
-          )}
-        </div>
-        {Object.keys(state.finishedStock || {}).filter(id => (state.finishedStock[id] || 0) !== 0).length === 0 ? (
-          <div className="empty">{state.lang === 'ar' ? 'لا يوجد مخزون جاهز' : state.lang === 'it' ? 'Nessun prodotto finito' : 'No finished stock'}</div>
-        ) : (
-          <table style={{ marginTop: 14 }}>
-            <thead>
-              <tr>
-                <th>{T.col_product}</th>
-                <th>{state.lang === 'ar' ? 'المخزون (بانكاله)' : state.lang === 'it' ? 'Stock (bancale)' : 'Stock (bancale)'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(state.finishedStock || {}).filter(([, q]) => (q || 0) !== 0).map(([id, q]) => {
-                const prod = state.products.find(p => p.id === id);
-                const low = (q || 0) <= (state.settings.lowStock || 0);
-                return (
-                  <tr key={id}>
-                    <td style={{ fontWeight: 600 }}>{prod ? prod.name : id}</td>
-                    <td>
-                      <span className="mono" style={{ fontWeight: 700, color: low ? 'var(--orange)' : 'var(--green)' }}>{(q || 0).toLocaleString()}</span>
-                      {low && <span className="badge warn" style={{ marginInlineStart: 6 }}>⚠️ {state.lang === 'ar' ? 'منخفض' : state.lang === 'it' ? 'Basso' : 'Low'}</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
       {/* ── Products labels stock ── */}
       {state.products.filter(p => !p.isPasta).length > 0 && (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -546,10 +499,6 @@ export default function Inventory() {
             addLog({ type: 'pasta_lid_stock_add', name: stockingPastaLid.name, qty, reason, by: state.role });
             setStockingPastaLid(null);
           }} />
-      )}
-      {addingFinished && (
-        <FinishedModal lang={state.lang} T={T} products={state.products.filter(p => !p.isPasta)}
-          onClose={() => setAddingFinished(false)} onSave={addFinishedStock} />
       )}
     </>
   );

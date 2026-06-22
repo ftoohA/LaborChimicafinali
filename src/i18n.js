@@ -6,7 +6,7 @@ export const I18N = {
   ar: {
     dir: 'rtl',
     title: 'LABORCHIMICA', dashboard: 'الرئيسية', products: 'المنتجات', inventory: 'المخزون',
-    program: 'البرنامج اليومي', warehouses: 'المخازن', attendance: 'الحضور', history: 'السجل', stats: 'التحليلات', admin: 'الإشراف',
+    program: 'البرنامج اليومي', warehouses: 'المخازن', finished: 'المنتجات الجاهزة', attendance: 'الحضور', history: 'السجل', stats: 'التحليلات', admin: 'الإشراف',
     role_admin: 'مدير', role_worker: 'عامل', login: 'دخول', logout: 'خروج',
     password: 'كلمة المرور', wrong_pass: 'كلمة المرور غلط',
     add_product: 'إضافة منتج', company: 'الشركة', type: 'نوع المنتج', liter: 'الحجم (لتر)',
@@ -65,7 +65,7 @@ export const I18N = {
   it: {
     dir: 'ltr',
     title: 'LABORCHIMICA', dashboard: 'Pannello', products: 'Prodotti', inventory: 'Magazzino',
-    program: 'Programma Giorno', warehouses: 'Magazzini', attendance: 'Presenze', history: 'Storico', stats: 'Statistiche', admin: 'Supervisione',
+    program: 'Programma Giorno', warehouses: 'Magazzini', finished: 'Prodotti finiti', attendance: 'Presenze', history: 'Storico', stats: 'Statistiche', admin: 'Supervisione',
     role_admin: 'Responsabile', role_worker: 'Operaio', login: 'Accedi', logout: 'Esci',
     password: 'Password', wrong_pass: 'Password errata',
     add_product: 'Aggiungi prodotto', company: 'Azienda', type: 'Tipo prodotto', liter: 'Litri',
@@ -124,7 +124,7 @@ export const I18N = {
   en: {
     dir: 'ltr',
     title: 'LABORCHIMICA', dashboard: 'Dashboard', products: 'Products', inventory: 'Inventory',
-    program: 'Daily Program', warehouses: 'Warehouses', attendance: 'Attendance', history: 'History', stats: 'Stats', admin: 'Admin',
+    program: 'Daily Program', warehouses: 'Warehouses', finished: 'Finished', attendance: 'Attendance', history: 'History', stats: 'Stats', admin: 'Admin',
     role_admin: 'Manager', role_worker: 'Worker', login: 'Login', logout: 'Logout',
     password: 'Password', wrong_pass: 'Wrong password',
     add_product: 'Add product', company: 'Company', type: 'Product type', liter: 'Liters',
@@ -183,7 +183,7 @@ export const I18N = {
   es: {
     dir: 'ltr',
     title: 'LABORCHIMICA', dashboard: 'Panel', products: 'Productos', inventory: 'Almacén',
-    program: 'Programa Diario', warehouses: 'Almacenes', attendance: 'Asistencia', history: 'Historial', stats: 'Estadísticas', admin: 'Supervisión',
+    program: 'Programa Diario', warehouses: 'Almacenes', finished: 'Productos terminados', attendance: 'Asistencia', history: 'Historial', stats: 'Estadísticas', admin: 'Supervisión',
     role_admin: 'Gerente', role_worker: 'Operario', login: 'Entrar', logout: 'Salir',
     password: 'Contraseña', wrong_pass: 'Contraseña incorrecta',
     add_product: 'Añadir producto', company: 'Empresa', type: 'Tipo de producto', liter: 'Litros',
