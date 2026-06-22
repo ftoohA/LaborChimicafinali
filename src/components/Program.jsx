@@ -113,22 +113,25 @@ export default function Program() {
     } else {
       const prog = allProgs[pi];
       const isAmazon = prog && prog.progType === 'amazon';
+      const piecesPerBancale = p.jerricansPer || p.capsPer || 1;
 
-      // Carton deduction (cartons ≈ one per unit produced) — applies to Linea & Amazon
-      const cartonUnits = target * (p.jerricansPer || p.capsPer || 1);
-      const updatedCartons = (p.hasCarton && p.cartonId)
-        ? (state.cartonTypes || []).map(c => c.id !== p.cartonId ? c : { ...c, stock: (c.stock || 0) + sign * cartonUnits * (1 + (c.waste || 0) / 100) })
+      // Carton deduction with waste. Amazon target is in PIECES (1 carton/piece);
+      // Linea target is in BANCALE (1 carton per unit = bancale × units/bancale).
+      const cartonId = it.cartonId || p.cartonId;
+      const cartonUnits = isAmazon ? target : target * piecesPerBancale;
+      const updatedCartons = (cartonId && (p.hasCarton || isAmazon))
+        ? (state.cartonTypes || []).map(c => c.id !== cartonId ? c : { ...c, stock: (c.stock || 0) + sign * cartonUnits * (1 + (c.waste || 0) / 100) })
         : (state.cartonTypes || []);
 
       const rowsUpdate = action === 'done'
-        ? { status: 'done', rows: pendingRows ?? makeRows(it).map(r => ({ ...r, done: true })) }
-        : { status: 'pending', rows: makeRows(it).map(r => ({ ...r, done: false })) };
+        ? { status: 'done', rows: isAmazon ? [{ done: true }] : (pendingRows ?? makeRows(it).map(r => ({ ...r, done: true }))) }
+        : { status: 'pending', rows: isAmazon ? [{ done: false }] : makeRows(it).map(r => ({ ...r, done: false })) };
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
 
       if (isAmazon) {
-        // Amazon: deduct from finished-goods warehouse, NO manufacturing deduction
+        // Amazon: deduct from finished-goods warehouse (pieces → bancale), NO manufacturing
         const fs = { ...(state.finishedStock || {}) };
-        fs[p.id] = (fs[p.id] || 0) + sign * target;
+        fs[p.id] = (fs[p.id] || 0) + sign * (target / piecesPerBancale);
         update({ programs: newProgs, finishedStock: fs, cartonTypes: updatedCartons });
       } else {
         // Linea / standard: deduct manufacturing materials + cartons
@@ -753,18 +756,20 @@ export default function Program() {
         );
       })}
 
-      {showAddProg && (
-        <AddProgramModal date={date} T={T} state={state}
-          onClose={() => setShowAddProg(false)}
-          onSave={(prog) => {
-            const existing = state.programs[date] || [];
-            update({ programs: { ...state.programs, [date]: [...existing, prog] } });
-            addLog({ type: 'program_added', date, count: prog.items.length, by: state.role });
-            toast(T.success_added);
-            setShowAddProg(false);
-          }}
-        />
-      )}
+      {showAddProg && (() => {
+        const saveProg = (prog) => {
+          const existing = state.programs[date] || [];
+          update({ programs: { ...state.programs, [date]: [...existing, prog] } });
+          addLog({ type: 'program_added', date, count: prog.items.length, by: state.role });
+          toast(T.success_added);
+          setShowAddProg(false);
+        };
+        // Each program type has its own dedicated entry form
+        if (typeFilter === 'amazon') {
+          return <AmazonProgramModal date={date} T={T} state={state} onClose={() => setShowAddProg(false)} onSave={saveProg} />;
+        }
+        return <AddProgramModal date={date} T={T} state={state} initialType={typeFilter !== 'all' ? typeFilter : 'daily'} onClose={() => setShowAddProg(false)} onSave={saveProg} />;
+      })()}
       {confirmItem && (
         <ConfirmCodeModal
           item={allProgs[confirmItem.pi]?.items[confirmItem.ii]}
@@ -780,10 +785,10 @@ export default function Program() {
 }
 
 /* ---- Add Program Modal ---- */
-function AddProgramModal({ date, T, state, onClose, onSave }) {
+function AddProgramModal({ date, T, state, initialType = 'daily', onClose, onSave }) {
   const toast = useToast();
   const [label, setLabel] = useState('');
-  const [progType, setProgType] = useState('daily');
+  const [progType, setProgType] = useState(initialType);
   const [chemistId, setChemistId] = useState('');
   const [prepType, setPrepType] = useState('carton');
   const [assignedWorkers, setAssignedWorkers] = useState([]);
@@ -928,6 +933,101 @@ function AddProgramModal({ date, T, state, onClose, onSave }) {
         </table>
       </div>
       <button style={{ marginTop: 8 }} onClick={addRow}>+ {isLiquidPrep ? (state.lang === 'ar' ? 'سائل' : 'Liquido') : T.select_product}</button>
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={handleSave}>{T.save}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---- Amazon Program Modal (dedicated entry form) ---- */
+function AmazonProgramModal({ date, T, state, onClose, onSave }) {
+  const toast = useToast();
+  const L = state.lang;
+  const t = (ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
+  const [label, setLabel] = useState('');
+  const [assignedWorkers, setAssignedWorkers] = useState([]);
+  const products = state.products.filter(p => !p.isPasta);
+  const emptyRow = () => ({ id: uid(), productId: '', cartonId: '', target: '', notes: '' });
+  const [rows, setRows] = useState([emptyRow()]);
+
+  const setRow = (id, f, v) => setRows(r => r.map(x => x.id === id ? { ...x, [f]: v } : x));
+  const onProduct = (id, pid) => {
+    const prod = products.find(p => p.id === pid);
+    setRows(r => r.map(x => x.id !== id ? x : { ...x, productId: pid, cartonId: prod?.cartonId || x.cartonId }));
+  };
+  const addRow = () => setRows(r => [...r, emptyRow()]);
+  const removeRow = (id) => { if (rows.length > 1) setRows(r => r.filter(x => x.id !== id)); };
+  const toggleWorker = (wid) => setAssignedWorkers(aw => aw.includes(wid) ? aw.filter(x => x !== wid) : [...aw, wid]);
+
+  const handleSave = () => {
+    const items = rows.filter(r => r.productId && Number(r.target) > 0).map(r => ({
+      productId: r.productId, cartonId: r.cartonId || null,
+      target: Number(r.target), unit: 'pieces', notes: r.notes || '', status: 'pending',
+    }));
+    if (!items.length) { toast('—', true); return; }
+    onSave({ id: uid(), label: label || T.prog_amazon, progType: 'amazon', chemistId: '', assignedWorkers, items });
+  };
+
+  return (
+    <Modal onClose={onClose} maxWidth={820}>
+      <h3>📦 {T.prog_amazon} — {date}</h3>
+      <p className="smallmuted" style={{ marginTop: 0 }}>
+        {t('طلبية أمازون: تُخصم من مخزن المنتجات الجاهزة (بدون تصنيع).', 'Ordine Amazon: scala dal magazzino prodotti finiti (nessuna produzione).', 'Amazon order: deducts from finished-goods stock (no manufacturing).')}
+      </p>
+      <div className="grid cols-2" style={{ marginBottom: 14 }}>
+        <div className="field"><label>{T.prog_label}</label><input value={label} onChange={e => setLabel(e.target.value)} placeholder="Amazon..." /></div>
+        <div className="field">
+          <label>👷 {t('العمال', 'Operai assegnati', 'Workers')}</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {(state.workers || []).map(w => (
+              <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                <input type="checkbox" checked={assignedWorkers.includes(w.id)} onChange={() => toggleWorker(w.id)} />{w.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ color: 'var(--muted)', fontSize: 11 }}>
+              <th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{T.col_product}</th>
+              <th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>📦 {t('الكرتونة', 'Cartone', 'Carton')}</th>
+              <th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{t('عدد القطع المطلوبة', 'Pezzi richiesti', 'Pieces needed')}</th>
+              <th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{T.col_notes}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const avail = Number((state.finishedStock || {})[row.productId] || 0);
+              return (
+                <tr key={row.id}>
+                  <td style={{ padding: '4px 3px' }}>
+                    <select className="input-sm" style={{ minWidth: 130 }} value={row.productId} onChange={e => onProduct(row.id, e.target.value)}>
+                      <option value="">{T.select_product}</option>
+                      {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    {row.productId && <div className="smallmuted" style={{ fontSize: 10 }}>{t('متاح', 'Disp.', 'Avail')}: {avail.toFixed(1)} bancale</div>}
+                  </td>
+                  <td style={{ padding: '4px 3px' }}>
+                    <select className="input-sm" value={row.cartonId} onChange={e => setRow(row.id, 'cartonId', e.target.value)}>
+                      <option value="">{t('بدون', 'Nessuno', 'None')}</option>
+                      {(state.cartonTypes || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.size ? ` (${c.size})` : ''}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: '4px 3px' }}><input className="input-sm" type="number" style={{ width: 90 }} placeholder={t('قطعة', 'pezzi', 'pcs')} value={row.target} onChange={e => setRow(row.id, 'target', e.target.value)} /></td>
+                  <td style={{ padding: '4px 3px' }}><input className="input-sm" type="text" style={{ width: 100 }} placeholder={T.col_notes} value={row.notes} onChange={e => setRow(row.id, 'notes', e.target.value)} /></td>
+                  <td style={{ padding: '4px 3px' }}><button className="ghost" style={{ color: 'var(--red)', padding: '4px 8px' }} onClick={() => removeRow(row.id)}>✕</button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button style={{ marginTop: 8 }} onClick={addRow}>+ {T.select_product}</button>
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={handleSave}>{T.save}</button>
