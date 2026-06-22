@@ -111,28 +111,46 @@ export default function Program() {
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
       update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids });
     } else {
-      const updatedProducts = state.products.map(prod => {
-        if (prod.id !== p.id) return prod;
-        return { ...prod, stock: { ...prod.stock,
-          ticketsFront: prod.stock.ticketsFront + sign * target * prod.ticketsFront * (1 + s.wasteTicket / 100),
-          ticketsBack:  prod.stock.ticketsBack  + sign * target * prod.ticketsBack  * (1 + s.wasteTicket / 100),
-          caps:      !prod.coverId  ? prod.stock.caps      + sign * target * prod.capsPer      * (1 + s.wasteCap / 100)      : prod.stock.caps,
-          jerricans: !prod.basketId ? prod.stock.jerricans + sign * target * prod.jerricansPer * (1 + s.wasteJerrican / 100) : prod.stock.jerricans,
-        }};
-      });
-      const effectiveCoverId  = it.coverId  || p.coverId;
-      const effectiveBasketId = it.basketId || p.basketId;
-      const updatedCovers = effectiveCoverId && p.capsPer > 0
-        ? state.covers.map(c => c.id !== effectiveCoverId ? c : { ...c, stock: (c.stock || 0) + sign * target * p.capsPer * (1 + s.wasteCap / 100) })
-        : state.covers;
-      const updatedBaskets = effectiveBasketId && p.jerricansPer > 0
-        ? state.baskets.map(b => b.id !== effectiveBasketId ? b : { ...b, stock: (b.stock || 0) + sign * target * p.jerricansPer * (1 + s.wasteJerrican / 100) })
-        : state.baskets;
+      const prog = allProgs[pi];
+      const isAmazon = prog && prog.progType === 'amazon';
+
+      // Carton deduction (cartons ≈ one per unit produced) — applies to Linea & Amazon
+      const cartonUnits = target * (p.jerricansPer || p.capsPer || 1);
+      const updatedCartons = (p.hasCarton && p.cartonId)
+        ? (state.cartonTypes || []).map(c => c.id !== p.cartonId ? c : { ...c, stock: (c.stock || 0) + sign * cartonUnits * (1 + (c.waste || 0) / 100) })
+        : (state.cartonTypes || []);
+
       const rowsUpdate = action === 'done'
         ? { status: 'done', rows: pendingRows ?? makeRows(it).map(r => ({ ...r, done: true })) }
         : { status: 'pending', rows: makeRows(it).map(r => ({ ...r, done: false })) };
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
-      update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets });
+
+      if (isAmazon) {
+        // Amazon: deduct from finished-goods warehouse, NO manufacturing deduction
+        const fs = { ...(state.finishedStock || {}) };
+        fs[p.id] = (fs[p.id] || 0) + sign * target;
+        update({ programs: newProgs, finishedStock: fs, cartonTypes: updatedCartons });
+      } else {
+        // Linea / standard: deduct manufacturing materials + cartons
+        const updatedProducts = state.products.map(prod => {
+          if (prod.id !== p.id) return prod;
+          return { ...prod, stock: { ...prod.stock,
+            ticketsFront: prod.stock.ticketsFront + sign * target * prod.ticketsFront * (1 + s.wasteTicket / 100),
+            ticketsBack:  prod.stock.ticketsBack  + sign * target * prod.ticketsBack  * (1 + s.wasteTicket / 100),
+            caps:      !prod.coverId  ? prod.stock.caps      + sign * target * prod.capsPer      * (1 + s.wasteCap / 100)      : prod.stock.caps,
+            jerricans: !prod.basketId ? prod.stock.jerricans + sign * target * prod.jerricansPer * (1 + s.wasteJerrican / 100) : prod.stock.jerricans,
+          }};
+        });
+        const effectiveCoverId  = it.coverId  || p.coverId;
+        const effectiveBasketId = it.basketId || p.basketId;
+        const updatedCovers = effectiveCoverId && p.capsPer > 0
+          ? state.covers.map(c => c.id !== effectiveCoverId ? c : { ...c, stock: (c.stock || 0) + sign * target * p.capsPer * (1 + s.wasteCap / 100) })
+          : state.covers;
+        const updatedBaskets = effectiveBasketId && p.jerricansPer > 0
+          ? state.baskets.map(b => b.id !== effectiveBasketId ? b : { ...b, stock: (b.stock || 0) + sign * target * p.jerricansPer * (1 + s.wasteJerrican / 100) })
+          : state.baskets;
+        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons });
+      }
     }
     addLog({ type: action === 'done' ? 'produce' : 'undo', product: p.code, target, date, by: state.role });
     toast(action === 'done' ? T.success_done : T.success_undo);
