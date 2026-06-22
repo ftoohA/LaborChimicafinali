@@ -127,6 +127,7 @@ export default function Products() {
           pastaLiquids={state.pastaLiquids}
           pastaBoxes={state.pastaBoxes}
           pastaLids={state.pastaLids}
+          cartonTypes={state.cartonTypes}
           onClose={() => setEditing(null)}
           onSave={(prod) => {
             if (editing) {
@@ -144,7 +145,7 @@ export default function Products() {
   );
 }
 
-function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave, pastaLiquids, pastaBoxes = [], pastaLids = [] }) {
+function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave, pastaLiquids, pastaBoxes = [], pastaLids = [], cartonTypes = [] }) {
   const [form, setForm] = useState({
     company: existing?.company || '',
     type: existing?.type || '',
@@ -158,6 +159,8 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
     jerricansPer: existing?.jerricansPer ?? 128,
     coverId: existing?.coverId || '',
     basketId: existing?.basketId || '',
+    hasCarton: existing?.hasCarton || false,
+    cartonId: existing?.cartonId || '',
     isPasta: existing?.isPasta || false,
     hasSponge: existing?.hasSponge || false,
     pastaLiquidId: existing?.pastaLiquidId || '',
@@ -242,6 +245,8 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
       jerricansPer: form.isPasta ? 0 : (Number(form.jerricansPer) || 0),
       coverId: form.isPasta ? null : (form.coverId || null),
       basketId: form.isPasta ? null : (form.basketId || null),
+      hasCarton: form.isPasta ? false : !!form.hasCarton,
+      cartonId: (!form.isPasta && form.hasCarton) ? (form.cartonId || null) : null,
       name: `${form.company.trim()} - ${form.type.trim()}`,
       recipe: form.isPasta ? [] : cleanedRecipe,
       isPasta: !!form.isPasta,
@@ -314,6 +319,18 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
           {T.dir === 'rtl' ? 'هل المنتج باستا؟ (Pasta Abrasiva)' : 'Is this product Pasta?'}
         </label>
 
+        {!form.isPasta && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 'bold' }}>
+            <input
+              type="checkbox"
+              checked={form.hasCarton}
+              onChange={e => set('hasCarton', e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+            📦 {T.dir === 'rtl' ? 'هل المنتج له كرتونة؟' : 'Has a carton?'}
+          </label>
+        )}
+
         {form.isPasta && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 'bold' }}>
             <input 
@@ -326,6 +343,18 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
           </label>
         )}
       </div>
+
+      {!form.isPasta && form.hasCarton && (
+        <div className="field" style={{ marginBottom: 12 }}>
+          <label style={{ fontWeight: 'bold' }}>📦 {T.dir === 'rtl' ? 'نوع الكرتونة (من المخزن)' : 'Carton type (from warehouse)'}</label>
+          <select value={form.cartonId} onChange={e => set('cartonId', e.target.value)}>
+            <option value="">— {T.dir === 'rtl' ? 'اختر الكرتونة' : 'Select carton'} —</option>
+            {(cartonTypes || []).map(c => (
+              <option key={c.id} value={c.id}>{c.name}{c.size ? ` (${c.size})` : ''}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {form.isPasta && (
         <>

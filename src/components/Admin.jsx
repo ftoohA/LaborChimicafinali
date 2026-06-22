@@ -24,6 +24,8 @@ export default function Admin() {
   const [addingPastaLid, setAddingPastaLid] = useState(false);
   const [stockingPastaBox, setStockingPastaBox] = useState(null);
   const [stockingPastaLid, setStockingPastaLid] = useState(null);
+  const [addingCarton, setAddingCarton] = useState(false);
+  const [stockingCarton, setStockingCarton] = useState(null);
 
   const setSetting = (k, v) => setSettings(s => ({ ...s, [k]: v }));
 
@@ -128,6 +130,30 @@ export default function Admin() {
     if (!confirm(T.confirm_delete)) return;
     update({ pastaLiquids: (state.pastaLiquids || []).filter(pl => pl.id !== id) });
     toast(T.deleted);
+  };
+
+  const addCartonStock = (id, qty, reason) => {
+    update({
+      cartonTypes: (state.cartonTypes || []).map(c =>
+        c.id !== id ? c : { ...c, stock: (c.stock || 0) + qty }
+      ),
+    });
+    addLog({ type: 'carton_stock_add', id, qty, reason, by: state.role });
+    toast(T.success_added);
+    setStockingCarton(null);
+  };
+
+  const deleteCarton = (id) => {
+    if (!confirm(T.confirm_delete)) return;
+    update({ cartonTypes: (state.cartonTypes || []).filter(c => c.id !== id) });
+    toast(T.deleted);
+  };
+
+  const saveCarton = (carton) => {
+    update({ cartonTypes: [...(state.cartonTypes || []), carton] });
+    addLog({ type: 'carton_added', name: carton.name, by: state.role });
+    toast(T.success_added);
+    setAddingCarton(false);
   };
 
   const addPastaLiquidStock = (id, qty, reason) => {
@@ -364,6 +390,57 @@ export default function Admin() {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Carton Warehouse */}
+      <div className="card">
+        <div className="flex-between">
+          <h3 style={{ margin: 0 }}>📦 {state.lang === 'ar' ? 'مخزن الكراتين' : state.lang === 'it' ? 'Magazzino cartoni' : 'Carton Warehouse'}</h3>
+          <button className="primary" onClick={() => setAddingCarton(true)}>+ {state.lang === 'ar' ? 'إضافة نوع كرتونة' : state.lang === 'it' ? 'Aggiungi tipo cartone' : 'Add Carton Type'}</button>
+        </div>
+        {(!state.cartonTypes || state.cartonTypes.length === 0) ? (
+          <div className="empty">{state.lang === 'ar' ? 'لا توجد كراتين مضافة' : state.lang === 'it' ? 'Nessun cartone aggiunto' : 'No cartons added'}</div>
+        ) : (
+          <table style={{ marginTop: 14 }}>
+            <thead>
+              <tr>
+                <th>{state.lang === 'ar' ? 'اسم الكرتونة' : state.lang === 'it' ? 'Nome cartone' : 'Carton Name'}</th>
+                <th>{state.lang === 'ar' ? 'الحجم' : state.lang === 'it' ? 'Misura' : 'Size'}</th>
+                <th>{state.lang === 'ar' ? 'المخزون' : state.lang === 'it' ? 'Stock' : 'Stock'}</th>
+                <th>{state.lang === 'ar' ? 'هادر %' : state.lang === 'it' ? 'Scarto %' : 'Waste %'}</th>
+                <th>{state.lang === 'ar' ? 'حد التحذير' : state.lang === 'it' ? 'Soglia avviso' : 'Low-Stock'}</th>
+                <th>{T.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(state.cartonTypes || []).map(c => {
+                const low = (c.stock || 0) <= (c.lowStock || 0);
+                return (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 600 }}>{c.name}</td>
+                    <td><span className="size-chip">{c.size || '—'}</span></td>
+                    <td>
+                      <span className="mono" style={{ fontWeight: 700, color: low ? 'var(--red)' : 'var(--green)' }}>
+                        {(c.stock || 0).toLocaleString()}
+                      </span>
+                      {low && <span className="badge bad" style={{ marginInlineStart: 6 }}>⚠️ {state.lang === 'ar' ? 'منخفض' : state.lang === 'it' ? 'Basso' : 'Low'}</span>}
+                    </td>
+                    <td className="mono">{c.waste || 0}%</td>
+                    <td className="mono">{c.lowStock || 0}</td>
+                    <td>
+                      <div className="row">
+                        <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setStockingCarton(c)}>
+                          + {state.lang === 'ar' ? 'إضافة مخزون' : state.lang === 'it' ? 'Aggiungi stock' : 'Add Stock'}
+                        </button>
+                        <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deleteCarton(c.id)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -696,6 +773,17 @@ export default function Admin() {
           onSave={(qty, reason) => addPastaLidStock(stockingPastaLid.id, qty, reason)}
         />
       )}
+      {addingCarton && (
+        <CartonModal lang={state.lang} T={T} onClose={() => setAddingCarton(false)} onSave={saveCarton} />
+      )}
+      {stockingCarton && (
+        <AddStockModal
+          T={T}
+          title={`${state.lang === 'ar' ? 'إضافة مخزون كرتونة' : state.lang === 'it' ? 'Aggiungi stock cartone' : 'Add Carton Stock'} — ${stockingCarton.name}`}
+          onClose={() => setStockingCarton(null)}
+          onSave={(qty, reason) => addCartonStock(stockingCarton.id, qty, reason)}
+        />
+      )}
     </>
   );
 }
@@ -1026,6 +1114,60 @@ function AddStockModal({ T, title, onClose, onSave }) {
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={() => { if (qty > 0) onSave(qty, reason); }}>{T.confirm}</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---- Carton Modal ---- */
+function CartonModal({ T, lang, onClose, onSave }) {
+  const toast = useToast();
+  const [f, setF] = useState({ name: '', size: '', stock: 0, lowStock: 0, waste: 0 });
+  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
+
+  const handleSave = () => {
+    if (!f.name.trim()) {
+      toast(lang === 'ar' ? 'الاسم مطلوب' : lang === 'it' ? 'Il nome è obbligatorio' : 'Name is required', true);
+      return;
+    }
+    onSave({
+      id: uid(),
+      name: f.name.trim(),
+      size: f.size.trim(),
+      stock: Number(f.stock) || 0,
+      lowStock: Number(f.lowStock) || 0,
+      waste: Number(f.waste) || 0,
+    });
+  };
+
+  return (
+    <Modal onClose={onClose} maxWidth={420}>
+      <h3>📦 {lang === 'ar' ? 'إضافة نوع كرتونة' : lang === 'it' ? 'Aggiungi tipo cartone' : 'Add Carton Type'}</h3>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>{lang === 'ar' ? 'اسم الكرتونة' : lang === 'it' ? 'Nome cartone' : 'Carton Name'}</label>
+          <input autoFocus value={f.name} onChange={e => set('name', e.target.value)} placeholder={lang === 'ar' ? 'كرتونة...' : 'Cartone...'} />
+        </div>
+        <div className="field">
+          <label>{lang === 'ar' ? 'الحجم (مثال: 1L)' : lang === 'it' ? 'Misura (es: 1L)' : 'Size (e.g. 1L)'}</label>
+          <input value={f.size} onChange={e => set('size', e.target.value)} placeholder="1L / 5L ..." />
+        </div>
+        <div className="field">
+          <label>{lang === 'ar' ? 'المخزون الابتدائي' : lang === 'it' ? 'Stock iniziale' : 'Initial Stock'}</label>
+          <input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>{lang === 'ar' ? 'هادر %' : lang === 'it' ? 'Scarto %' : 'Waste %'}</label>
+          <input type="number" value={f.waste} onChange={e => set('waste', e.target.value)} />
+        </div>
+        <div className="field">
+          <label>{lang === 'ar' ? 'حد التحذير' : lang === 'it' ? 'Soglia avviso' : 'Low-Stock Threshold'}</label>
+          <input type="number" value={f.lowStock} onChange={e => set('lowStock', e.target.value)} />
+        </div>
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={handleSave}>{T.save}</button>
       </div>
     </Modal>
   );
