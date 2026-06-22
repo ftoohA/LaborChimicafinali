@@ -939,9 +939,9 @@ function ChangePasswordCard({ T, state, update, toast }) {
     const isAdmin = tab === 'admin';
     const expected = isAdmin ? effectiveAdmin : effectiveWorker;
 
-    if (expected && current !== expected) { setErr('كلمة المرور الحالية غلط'); return; }
-    if (!next.trim()) { setErr('اكتب كلمة المرور الجديدة'); return; }
-    if (next !== confirm) { setErr('كلمتا المرور مش متطابقتين'); return; }
+    if (expected && current !== expected) { setErr(state.lang === 'ar' ? 'كلمة المرور الحالية غلط' : state.lang === 'it' ? 'Password attuale errata' : 'Current password is wrong'); return; }
+    if (!next.trim()) { setErr(state.lang === 'ar' ? 'اكتب كلمة المرور الجديدة' : state.lang === 'it' ? 'Inserisci la nuova password' : 'Enter the new password'); return; }
+    if (next !== confirm) { setErr(state.lang === 'ar' ? 'كلمتا المرور مش متطابقتين' : state.lang === 'it' ? 'Le password non coincidono' : 'Passwords do not match'); return; }
 
     update(isAdmin ? { adminPass: next } : { workerPass: next });
     toast(T.success_added);
@@ -950,7 +950,7 @@ function ChangePasswordCard({ T, state, update, toast }) {
 
   return (
     <div className="card" style={{ marginBottom: 0 }}>
-      <h3>🔑 تغيير كلمة المرور</h3>
+      <h3>🔑 {state.lang === 'ar' ? 'تغيير كلمة المرور' : state.lang === 'it' ? 'Cambia password' : 'Change Password'}</h3>
       <div className="row" style={{ marginBottom: 14, gap: 8 }}>
         {['admin', 'worker'].map(t => (
           <button key={t} className={tab === t ? 'primary' : 'ghost'} style={{ flex: 1 }}
@@ -961,17 +961,17 @@ function ChangePasswordCard({ T, state, update, toast }) {
       </div>
       <div className="grid cols-3">
         <div className="field">
-          <label>كلمة المرور الحالية</label>
+          <label>{state.lang === 'ar' ? 'كلمة المرور الحالية' : state.lang === 'it' ? 'Password attuale' : 'Current Password'}</label>
           <input type="password" placeholder="••••••" value={current}
             onChange={e => { setCurrent(e.target.value); setErr(''); }} />
         </div>
         <div className="field">
-          <label>كلمة المرور الجديدة</label>
+          <label>{state.lang === 'ar' ? 'كلمة المرور الجديدة' : state.lang === 'it' ? 'Nuova password' : 'New Password'}</label>
           <input type="password" placeholder="••••••" value={next}
             onChange={e => { setNext(e.target.value); setErr(''); }} />
         </div>
         <div className="field">
-          <label>تأكيد كلمة المرور</label>
+          <label>{state.lang === 'ar' ? 'تأكيد كلمة المرور' : state.lang === 'it' ? 'Conferma password' : 'Confirm Password'}</label>
           <input type="password" placeholder="••••••" value={confirm}
             onKeyDown={e => e.key === 'Enter' && save()}
             onChange={e => { setConfirm(e.target.value); setErr(''); }} />

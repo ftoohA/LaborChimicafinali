@@ -1,17 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Cairo:wght@400;600;700&display=swap');
 
 :root {
-  --bg: #0f1511;
-  --panel: #18211b;
-  --panel2: #1f2a22;
-  --line: #2c3a30;
-  --text: #eaf2ec;
-  --muted: #8aa093;
-  --brand: #449b23;
+  --bg: #1b1e23;
+  --panel: #23272e;
+  --panel2: #2b3038;
+  --line: #373d46;
+  --text: #e7eaef;
+  --muted: #98a1ad;
+  --brand: #5cae2e;
   --brand-light: #a1c04f;
-  --yellow: #a1c04f;
+  --yellow: #5cae2e;
   --orange: #e0892b;
-  --green: #57a832;
+  --green: #5cae2e;
   --red: #d6473a;
   --blue: #3d8bdb;
 }
@@ -32,8 +32,8 @@ body.ltr { font-family: 'Oswald', 'Cairo', sans-serif; }
 #app { min-height: 100vh; display: flex; flex-direction: column; }
 
 .hazard {
-  height: 6px;
-  background: repeating-linear-gradient(45deg, var(--yellow) 0 14px, #000 14px 28px);
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand) 0%, var(--brand-light) 100%);
 }
 
 header {
