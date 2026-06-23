@@ -31,6 +31,9 @@ const DEFAULTS = {
   attendance: [],    // { id, workerId, date, clockIn, clockInPhoto, clockOut, clockOutPhoto, manual }
   breaks: {},        // { [date]: { [workerId]: "12:00 - 12:30" } } — daily break schedule (changes per day)
   warehouses: [],    // custom warehouses: { id, name, unit: 'liter'|'piece'|'carton', items: [{id,name,size,stock,lowStock,waste}] }
+  announcements: [], // { id, text, photo, createdAt, active }
+  scheduledAlerts: [], // { id, text, dayOfWeek (0=Sun…6=Sat), hour, active }
+  manual: [],        // { id, progType, title, body, image, sizeConfigs:[{size,notes}] }
 };
 
 // Firestore document references
@@ -89,8 +92,11 @@ export function StoreProvider({ children }) {
           finishedStock:d.finishedStock?? DEFAULTS.finishedStock,
           attendance:   d.attendance   ?? DEFAULTS.attendance,
           breaks:       d.breaks       ?? DEFAULTS.breaks,
-          warehouses:   d.warehouses   ?? DEFAULTS.warehouses,
-          dailyCodes:   d.dailyCodes   ?? DEFAULTS.dailyCodes,
+          warehouses:      d.warehouses      ?? DEFAULTS.warehouses,
+          dailyCodes:      d.dailyCodes      ?? DEFAULTS.dailyCodes,
+          announcements:   d.announcements   ?? DEFAULTS.announcements,
+          scheduledAlerts: d.scheduledAlerts ?? DEFAULTS.scheduledAlerts,
+          manual:          d.manual          ?? DEFAULTS.manual,
         }));
       }
       markLoaded();
@@ -140,9 +146,13 @@ export function StoreProvider({ children }) {
             pastaLids:    newState.pastaLids,
             cartonTypes:  newState.cartonTypes,
             finishedStock:newState.finishedStock,
-            attendance:   newState.attendance,
-            breaks:       newState.breaks,
-            warehouses:   newState.warehouses,
+            attendance:      newState.attendance,
+            breaks:          newState.breaks,
+            warehouses:      newState.warehouses,
+            dailyCodes:      newState.dailyCodes,
+            announcements:   newState.announcements,
+            scheduledAlerts: newState.scheduledAlerts,
+            manual:          newState.manual,
           }),
           setDoc(REF_PROGS(db), { programs: newState.programs }),
           setDoc(REF_LOG(db),   { entries: newState.log.slice(-800) }),
@@ -157,7 +167,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   /* ── update() — replaces partial state and triggers save ── */
-  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'finishedStock', 'attendance', 'breaks', 'warehouses']);
+  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'finishedStock', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual']);
 
   const update = useCallback((partial) => {
     setState(s => {

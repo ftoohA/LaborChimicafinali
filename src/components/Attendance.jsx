@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { I18N } from '../i18n';
-import { uid, todayStr } from '../helpers';
+import { uid, todayStr, roundedHours } from '../helpers';
 import Modal from './Modal';
 import { useToast } from './Toast';
 
@@ -9,11 +9,6 @@ const tr = (lang, ar, it, en) => (lang === 'ar' ? ar : lang === 'it' ? it : en);
 
 function fmtTime(iso) {
   return iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-}
-function hoursBetween(a, b) {
-  if (!a || !b) return null;
-  const ms = new Date(b) - new Date(a);
-  return ms > 0 ? ms / 3600000 : 0;
 }
 
 export default function Attendance() {
@@ -86,11 +81,10 @@ export default function Attendance() {
     if (!isManual) toast(action === 'in' ? tr(L, 'تم تسجيل الدخول', 'Entrata registrata', 'Clocked in') : tr(L, 'تم تسجيل الخروج', 'Uscita registrata', 'Clocked out'));
   };
 
-  // total hours today
+  // total hours today (rounded per factory rules)
   const totalHours = workers.reduce((sum, w) => {
     const r = recFor(w.id);
-    const h = r ? hoursBetween(r.clockIn, r.clockOut) : null;
-    return sum + (h || 0);
+    return sum + (roundedHours(r?.clockIn, r?.clockOut) || 0);
   }, 0);
 
   return (
@@ -108,7 +102,7 @@ export default function Attendance() {
           <div className="global-inv-grid" style={{ marginTop: 12 }}>
             {workers.map(w => {
               const r = recFor(w.id);
-              const h = r ? hoursBetween(r.clockIn, r.clockOut) : null;
+              const h = roundedHours(r?.clockIn, r?.clockOut);
               const status = !r || !r.clockIn ? 'none' : !r.clockOut ? 'in' : 'done';
               return (
                 <div className="inv-card" key={w.id} style={{ borderColor: status === 'in' ? 'var(--green)' : 'var(--line)' }}>

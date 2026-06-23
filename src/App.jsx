@@ -12,9 +12,11 @@ import Admin from './components/Admin';
 import Attendance from './components/Attendance';
 import Warehouses from './components/Warehouses';
 import FinishedProducts from './components/FinishedProducts';
+import WorkerProfile from './components/WorkerProfile';
+import Manual from './components/Manual';
 
-const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'finished', 'inventory', 'program', 'attendance', 'history', 'stats', 'admin'];
-const TABS_WORKER = ['dashboard', 'program', 'attendance', 'history'];
+const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'finished', 'inventory', 'program', 'attendance', 'history', 'stats', 'manual', 'admin'];
+const TABS_WORKER = ['dashboard', 'program', 'attendance', 'profile', 'manual', 'history'];
 
 export default function App() {
   const { state, update } = useStore();
@@ -73,6 +75,8 @@ export default function App() {
         {state.tab === 'attendance' && <Attendance />}
         {state.tab === 'history'    && <History />}
         {state.tab === 'stats'      && <Stats />}
+        {state.tab === 'manual'     && <Manual />}
+        {state.tab === 'profile'    && <WorkerProfile />}
         {state.tab === 'admin'      && <Admin />}
       </main>
     </div>

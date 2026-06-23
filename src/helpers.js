@@ -86,3 +86,15 @@ export function updateProgramItem(programs, date, pi, ii, changes) {
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
+
+// Round a session to the nearest 0.5h using factory rules:
+// ≤20 min → 0, 21-44 min → 0.5h, ≥45 min → 1h per block
+export function roundedHours(clockIn, clockOut) {
+  if (!clockIn || !clockOut) return null;
+  const ms = new Date(clockOut) - new Date(clockIn);
+  if (ms <= 0) return 0;
+  const totalMins = ms / 60000;
+  const full = Math.floor(totalMins / 60);
+  const rem = totalMins % 60;
+  return full + (rem > 45 ? 1 : rem > 20 ? 0.5 : 0);
+}

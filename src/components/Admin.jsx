@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
 import { I18N, ADMIN_PASS, WORKER_PASS } from '../i18n';
-import { uid } from '../helpers';
+import { uid, roundedHours } from '../helpers';
 import Modal from './Modal';
 
 export default function Admin() {
@@ -18,7 +18,7 @@ export default function Admin() {
   const thisMonth = new Date().toISOString().slice(0, 7);
   const getMonthlyHours = (wid) => (state.attendance || [])
     .filter(r => r.workerId === wid && r.date && r.date.startsWith(thisMonth))
-    .reduce((sum, r) => sum + (r.clockOut && r.clockIn ? Math.max(0, (new Date(r.clockOut) - new Date(r.clockIn)) / 3600000) : 0), 0);
+    .reduce((sum, r) => sum + (roundedHours(r.clockIn, r.clockOut) || 0), 0);
 
   const setSetting = (k, v) => setSettings(s => ({ ...s, [k]: v }));
 

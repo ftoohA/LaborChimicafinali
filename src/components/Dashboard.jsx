@@ -1,8 +1,18 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { I18N } from '../i18n';
-import { bancaleEquivalent, stockStatus, todayStr } from '../helpers';
+import { bancaleEquivalent, stockStatus, todayStr, uid } from '../helpers';
 import ProgBadge from './ProgBadge';
+import Modal from './Modal';
+import { useToast } from './Toast';
+
+const tr = (L, ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
+
+const DAY_NAMES = {
+  ar: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+  it: ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+};
 
 export default function Dashboard() {
   const { state, update } = useStore();
@@ -125,6 +135,53 @@ export default function Dashboard() {
 
   const note = state.managerNotes[today] || '';
   const [search, setSearch] = useState('');
+  const [postingAnnouncement, setPostingAnnouncement] = useState(false);
+  const [manageScheduled, setManageScheduled] = useState(false);
+
+  const now = new Date();
+  const announcements = (state.announcements || []).filter(a => a.active);
+  const scheduledAlerts = (state.scheduledAlerts || []).filter(sa =>
+    sa.active && sa.dayOfWeek === now.getDay() && now.getHours() >= sa.hour
+  );
+
+  const dismissAnnouncement = (id) => {
+    update({ announcements: (state.announcements || []).map(a => a.id === id ? { ...a, active: false } : a) });
+  };
+
+  const AnnouncementsBlock = () => (
+    <>
+      {scheduledAlerts.map(sa => (
+        <div key={sa.id} className="card" style={{ borderColor: 'var(--yellow)', background: 'rgba(242,183,5,0.06)', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>⏰</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--yellow)' }}>
+                {tr(state.lang, 'تنبيه مجدول', 'Avviso programmato', 'Scheduled Alert')}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 15, lineHeight: 1.7 }}>{sa.text}</div>
+            </div>
+          </div>
+        </div>
+      ))}
+      {announcements.map(a => (
+        <div key={a.id} className="card" style={{ borderColor: 'var(--red)', background: 'rgba(220,38,38,0.04)', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>📢</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--red)' }}>
+                {tr(state.lang, '⚡ إشعار عاجل', '⚡ Avviso urgente', '⚡ Urgent Notice')}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{a.text}</div>
+              {a.photo && <img src={a.photo} alt="" style={{ marginTop: 10, maxWidth: '100%', borderRadius: 8, maxHeight: 300, objectFit: 'contain' }} />}
+            </div>
+            {state.role === 'admin' && (
+              <button className="ghost" style={{ fontSize: 12, padding: '4px 8px', flexShrink: 0, color: 'var(--muted)' }} onClick={() => dismissAnnouncement(a.id)}>✕</button>
+            )}
+          </div>
+        </div>
+      ))}
+    </>
+  );
 
   /* ── Worker schedule helper ── */
   const renderWorkerSchedule = () => {
@@ -187,6 +244,7 @@ export default function Dashboard() {
     );
     return (
       <>
+        <AnnouncementsBlock />
         {renderWorkerSchedule()}
         {note && (
           <div className="notes-card" style={{ marginBottom: 16 }}>
@@ -285,6 +343,16 @@ export default function Dashboard() {
 
   return (
     <>
+      {/* Admin announcement controls */}
+      <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <button className="primary" onClick={() => setPostingAnnouncement(true)}>
+          📢 {tr(state.lang, 'نشر إشعار عاجل', 'Pubblica avviso urgente', 'Post Urgent Notice')}
+        </button>
+        <button className="ghost" onClick={() => setManageScheduled(true)}>
+          ⏰ {tr(state.lang, 'التنبيهات المجدولة', 'Avvisi programmati', 'Scheduled Alerts')}
+        </button>
+      </div>
+      <AnnouncementsBlock />
       {renderWorkerSchedule()}
       {note && (
         <div className="notes-card">
@@ -470,6 +538,21 @@ export default function Dashboard() {
           <ProgramSummary key={pi} pr={pr} T={T} state={state} />
         ))}
       </div>
+
+      {postingAnnouncement && (
+        <AnnouncementModal L={state.lang} T={T}
+          onClose={() => setPostingAnnouncement(false)}
+          onSave={ann => {
+            update({ announcements: [...(state.announcements || []), ann] });
+            setPostingAnnouncement(false);
+          }} />
+      )}
+      {manageScheduled && (
+        <ScheduledAlertsModal L={state.lang} T={T}
+          alerts={state.scheduledAlerts || []}
+          onClose={() => setManageScheduled(false)}
+          onSave={alerts => { update({ scheduledAlerts: alerts }); setManageScheduled(false); }} />
+      )}
     </>
   );
 }
@@ -543,5 +626,105 @@ function ProgramSummary({ pr, T, state }) {
         </table>
       </div>
     </div>
+  );
+}
+
+function AnnouncementModal({ L, T, onClose, onSave }) {
+  const toast = useToast();
+  const fileRef = useRef();
+  const [text, setText] = useState('');
+  const [photo, setPhoto] = useState('');
+
+  const compress = (file) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 900;
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * sc); canvas.height = Math.round(img.height * sc);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      setPhoto(canvas.toDataURL('image/jpeg', 0.75));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  return (
+    <Modal onClose={onClose} maxWidth={460}>
+      <h3>📢 {tr(L, 'نشر إشعار عاجل', 'Pubblica avviso urgente', 'Post Urgent Notice')}</h3>
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => compress(e.target.files?.[0])} />
+      <div className="field">
+        <label>{tr(L, 'نص الإشعار', 'Testo avviso', 'Notice text')}</label>
+        <textarea autoFocus value={text} onChange={e => setText(e.target.value)} style={{ minHeight: 80 }}
+          placeholder={tr(L, 'اكتب الإشعار العاجل هنا...', 'Scrivi qui l\'avviso urgente...', 'Write the urgent notice here...')} />
+      </div>
+      <div className="field">
+        <label>{tr(L, 'صورة (اختياري)', 'Immagine (opzionale)', 'Photo (optional)')}</label>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          {photo && <img src={photo} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6 }} />}
+          <button type="button" onClick={() => fileRef.current?.click()}>📷 {tr(L, 'إضافة صورة', 'Aggiungi foto', 'Add photo')}</button>
+          {photo && <button type="button" className="danger ghost" onClick={() => setPhoto('')}>✕</button>}
+        </div>
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={() => {
+          if (!text.trim()) return;
+          onSave({ id: uid(), text: text.trim(), photo, createdAt: new Date().toISOString(), active: true });
+        }}>📢 {tr(L, 'نشر الآن', 'Pubblica ora', 'Post now')}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function ScheduledAlertsModal({ L, T, alerts, onClose, onSave }) {
+  const [rows, setRows] = useState(alerts.map(a => ({ ...a })));
+  const addRow = () => setRows(r => [...r, { id: uid(), text: '', dayOfWeek: 4, hour: 8, active: true }]);
+  const del = (id) => setRows(r => r.filter(x => x.id !== id));
+  const setR = (id, f, v) => setRows(r => r.map(x => x.id !== id ? x : { ...x, [f]: v }));
+  const days = DAY_NAMES[L] || DAY_NAMES.en;
+
+  return (
+    <Modal onClose={onClose} maxWidth={560}>
+      <h3>⏰ {tr(L, 'التنبيهات المجدولة الأسبوعية', 'Avvisi programmati settimanali', 'Weekly Scheduled Alerts')}</h3>
+      <p className="smallmuted" style={{ marginBottom: 14 }}>
+        {tr(L, 'تظهر تلقائياً على الصفحة الرئيسية في اليوم والوقت المحدد', 'Appaiono automaticamente nella dashboard al giorno e all\'ora impostati', 'Appear automatically on the dashboard on the set day and time')}
+      </p>
+      {rows.map(row => (
+        <div key={row.id} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: 12, marginBottom: 10 }}>
+          <div className="row" style={{ gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
+            <div className="field" style={{ flex: 2, margin: 0 }}>
+              <label style={{ fontSize: 11 }}>{tr(L, 'اليوم', 'Giorno', 'Day')}</label>
+              <select value={row.dayOfWeek} onChange={e => setR(row.id, 'dayOfWeek', Number(e.target.value))}>
+                {days.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+            </div>
+            <div className="field" style={{ flex: 1, margin: 0 }}>
+              <label style={{ fontSize: 11 }}>{tr(L, 'الساعة', 'Ora', 'Hour')}</label>
+              <input type="number" min={0} max={23} value={row.hour} onChange={e => setR(row.id, 'hour', Number(e.target.value))} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 2, cursor: 'pointer' }}>
+              <input type="checkbox" checked={row.active} onChange={e => setR(row.id, 'active', e.target.checked)} />
+              {tr(L, 'فعّال', 'Attivo', 'Active')}
+            </label>
+            <button className="danger ghost" style={{ padding: '6px 10px', marginBottom: 2 }} onClick={() => del(row.id)}>✕</button>
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label style={{ fontSize: 11 }}>{tr(L, 'نص التنبيه', 'Testo avviso', 'Alert text')}</label>
+            <input value={row.text} onChange={e => setR(row.id, 'text', e.target.value)}
+              placeholder={tr(L, 'مثال: أخرجوا القمامة', 'es: Portare fuori la spazzatura', 'e.g. Take out the garbage')} />
+          </div>
+        </div>
+      ))}
+      <button className="ghost" style={{ width: '100%', marginBottom: 14 }} onClick={addRow}>
+        + {tr(L, 'إضافة تنبيه', 'Aggiungi avviso', 'Add alert')}
+      </button>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={() => onSave(rows.filter(r => r.text.trim()))}>{T.save}</button>
+      </div>
+    </Modal>
   );
 }
