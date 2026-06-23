@@ -78,6 +78,7 @@ export default function Program() {
   /* ---- Stock deduction on item confirm ---- */
   const handleConfirm = ({ pi, ii, action, pendingRows }) => {
     const it = allProgs[pi].items[ii];
+    if (it.type === 'custom_material') { handleCustomConfirm({ pi, ii, action }); return; }
     if (it.prepType === 'liquid') { handleLiquidConfirm({ pi, ii, action, pendingRows }); return; }
     const p = state.products.find(x => x.id === it.productId);
     if (!p) return;
@@ -181,6 +182,22 @@ export default function Program() {
     const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
     update({ programs: newProgs, pastaLiquids: updatedLiquids });
     addLog({ type: action === 'done' ? 'liquid_prep' : 'liquid_undo', liquid: liq.name, liters, date, by: state.role });
+    toast(action === 'done' ? T.success_done : T.success_undo);
+    setConfirmItem(null);
+  };
+
+  /* ---- Custom warehouse material confirm ---- */
+  const handleCustomConfirm = ({ pi, ii, action }) => {
+    const it = allProgs[pi].items[ii];
+    const sign = action === 'done' ? -1 : 1;
+    const updatedWarehouses = (state.warehouses || []).map(w =>
+      w.id !== it.warehouseId ? w :
+      { ...w, items: (w.items || []).map(i => i.id !== it.itemId ? i : { ...i, stock: Math.max(0, (i.stock || 0) + sign * it.target) }) }
+    );
+    const rowsUpdate = action === 'done' ? { status: 'done', rows: [{ done: true }] } : { status: 'pending', rows: [{ done: false }] };
+    const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
+    update({ programs: newProgs, warehouses: updatedWarehouses });
+    addLog({ type: action === 'done' ? 'custom_material_used' : 'custom_material_undo', warehouseId: it.warehouseId, itemId: it.itemId, qty: it.target, date, by: state.role });
     toast(action === 'done' ? T.success_done : T.success_undo);
     setConfirmItem(null);
   };
@@ -555,6 +572,34 @@ export default function Program() {
                 </thead>
                 <tbody>
                   {pr.items.map((it, ii) => {
+                    const isCustom = it.type === 'custom_material';
+                    if (isCustom) {
+                      const wh = (state.warehouses || []).find(w => w.id === it.warehouseId);
+                      const whItem = (wh?.items || []).find(i => i.id === it.itemId);
+                      const unitLbl = wh?.unit === 'liter' ? 'L' : wh?.unit === 'carton' ? (state.lang === 'ar' ? 'كرتونة' : 'cart.') : (state.lang === 'ar' ? 'قطعة' : 'pz');
+                      const nameColSpan = pr.progType !== 'amazon' ? 3 : 1;
+                      return (
+                        <tr key={ii} className={it.status === 'done' ? 'row-done' : 'row-pending'} style={{ background: 'rgba(100,120,200,0.06)' }}>
+                          <td className="mono smallmuted">{ii + 1}</td>
+                          <td colSpan={nameColSpan}>
+                            <strong>📦 {whItem?.name || '?'}</strong>
+                            <br /><span className="smallmuted" style={{ fontSize: 11 }}>{wh?.name}</span>
+                          </td>
+                          <td className="mono" style={{ fontWeight: 700 }}>{it.target} {unitLbl}</td>
+                          <td><input className="row-notes-inp" type="text" defaultValue={it.notes || ''} placeholder="..." onBlur={e => updateInlineField(realPi, ii, 'notes', e.target.value)} /></td>
+                          <td style={{ textAlign: 'center' }}>
+                            {it.status === 'done' ? (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button className="ghost" style={{ fontSize: 16, padding: '2px 6px' }} title={T.undo} onClick={() => setConfirmItem({ pi: realPi, ii, action: 'undo' })}>↩</button>
+                                <span className="badge ok">✓</span>
+                              </span>
+                            ) : (
+                              <input type="checkbox" className="confirm-cb" title={T.confirm} onChange={e => { if (e.target.checked) { e.target.checked = false; setConfirmItem({ pi: realPi, ii, action: 'done' }); } }} />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
                     const isLiq = it.prepType === 'liquid';
                     const p  = isLiq ? null : state.products.find(x => x.id === it.productId);
                     const liq = isLiq ? (state.pastaLiquids || []).find(x => x.id === it.pastaLiquidId) : null;
@@ -620,7 +665,8 @@ export default function Program() {
         <ConfirmCodeModal
           item={allProgs[confirmItem.pi]?.items[confirmItem.ii]}
           action={confirmItem.action} T={T} dailyCode={todayCode}
-          products={state.products} pastaLiquids={state.pastaLiquids || []} lang={state.lang}
+          products={state.products} pastaLiquids={state.pastaLiquids || []}
+          warehouses={state.warehouses || []} lang={state.lang}
           onClose={() => setConfirmItem(null)}
           onConfirm={() => handleConfirm(confirmItem)}
         />
@@ -641,6 +687,11 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
 
   const emptyRow = () => ({ id: uid(), productId: '', pastaLiquidId: '', coverId: '', basketId: '', pastaBoxId: '', pastaLidId: '', target: '', notes: '' });
   const [rows, setRows] = useState([emptyRow()]);
+  const [customRows, setCustomRows] = useState([]);
+  const emptyCustomRow = () => ({ id: uid(), warehouseId: '', itemId: '', target: '', notes: '' });
+  const addCustomRow = () => setCustomRows(r => [...r, emptyCustomRow()]);
+  const removeCustomRow = (id) => setCustomRows(r => r.filter(x => x.id !== id));
+  const setCRow = (id, field, value) => setCustomRows(r => r.map(x => x.id !== id ? x : { ...x, [field]: value }));
 
   const setRow = (id, field, value) => setRows(r => r.map(x => x.id === id ? { ...x, [field]: value } : x));
 
@@ -671,10 +722,16 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
         target: Number(r.target), notes: r.notes || '', status: 'pending',
       }));
     }
-    if (!items.length) { toast('—', true); return; }
+    const customItems = customRows
+      .filter(r => r.warehouseId && r.itemId && Number(r.target) > 0)
+      .map(r => {
+        const wh = (state.warehouses || []).find(w => w.id === r.warehouseId);
+        return { type: 'custom_material', warehouseId: r.warehouseId, itemId: r.itemId, target: Number(r.target), unit: wh?.unit || 'piece', notes: r.notes || '', status: 'pending' };
+      });
+    if (!items.length && !customItems.length) { toast('—', true); return; }
     // Liquid pasta items belong to Chimico (location), not Pasta (brazer)
     const savedType = isLiquidPrep ? 'location' : progType;
-    onSave({ id: uid(), label: label || T[`prog_${savedType}`], progType: savedType, chemistId: chemistId || '', assignedWorkers, items });
+    onSave({ id: uid(), label: label || T[`prog_${savedType}`], progType: savedType, chemistId: chemistId || '', assignedWorkers, items: [...items, ...customItems] });
   };
 
   return (
@@ -785,6 +842,42 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
         </table>
       </div>
       <button style={{ marginTop: 8 }} onClick={addRow}>+ {isLiquidPrep ? (state.lang === 'ar' ? 'سائل' : 'Liquido') : T.select_product}</button>
+
+      {/* Custom warehouse materials */}
+      {(state.warehouses || []).length > 0 && (
+        <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>
+              📦 {state.lang === 'ar' ? 'مواد من المخازن' : state.lang === 'it' ? 'Materiali dai magazzini' : 'Warehouse Materials'}
+            </span>
+            <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={addCustomRow}>
+              + {state.lang === 'ar' ? 'إضافة مادة' : state.lang === 'it' ? 'Aggiungi materiale' : 'Add Material'}
+            </button>
+          </div>
+          {customRows.map(row => {
+            const wh = (state.warehouses || []).find(w => w.id === row.warehouseId);
+            const unitLbl = wh?.unit === 'liter' ? 'L' : wh?.unit === 'carton' ? (state.lang === 'ar' ? 'كرتونة' : 'cart.') : (state.lang === 'ar' ? 'قطعة' : 'pz');
+            return (
+              <div key={row.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                <select className="input-sm" style={{ flex: 2, minWidth: 120 }} value={row.warehouseId}
+                  onChange={e => { setCRow(row.id, 'warehouseId', e.target.value); setCRow(row.id, 'itemId', ''); }}>
+                  <option value="">{state.lang === 'ar' ? 'المخزن' : state.lang === 'it' ? 'Magazzino' : 'Warehouse'}</option>
+                  {(state.warehouses || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+                <select className="input-sm" style={{ flex: 2, minWidth: 120 }} value={row.itemId} disabled={!row.warehouseId}
+                  onChange={e => setCRow(row.id, 'itemId', e.target.value)}>
+                  <option value="">{state.lang === 'ar' ? 'الصنف' : state.lang === 'it' ? 'Articolo' : 'Item'}</option>
+                  {(wh?.items || []).map(it => <option key={it.id} value={it.id}>{it.name} ({it.stock || 0} {unitLbl})</option>)}
+                </select>
+                <input className="input-sm" type="number" style={{ width: 72 }} placeholder={unitLbl}
+                  value={row.target} onChange={e => setCRow(row.id, 'target', e.target.value)} />
+                <button className="ghost" style={{ color: 'var(--red)', padding: '4px 8px' }} onClick={() => removeCustomRow(row.id)}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={handleSave}>{T.save}</button>
@@ -889,14 +982,21 @@ function AmazonProgramModal({ date, T, state, onClose, onSave }) {
 }
 
 /* ---- Confirm Code Modal (uses daily code) ---- */
-function ConfirmCodeModal({ item, action, T, dailyCode, products, pastaLiquids, lang, onClose, onConfirm }) {
+function ConfirmCodeModal({ item, action, T, dailyCode, products, pastaLiquids, warehouses, lang, onClose, onConfirm }) {
   const [code, setCode] = useState('');
   const [err, setErr] = useState('');
   if (!item) return null;
+  const isCustom = item.type === 'custom_material';
   const isLiq = item.prepType === 'liquid';
-  const p = isLiq ? null : (products || []).find(x => x.id === item.productId);
+  const p = (isCustom || isLiq) ? null : (products || []).find(x => x.id === item.productId);
   const liq = isLiq ? (pastaLiquids || []).find(x => x.id === item.pastaLiquidId) : null;
-  const displayName = isLiq ? (liq ? liq.name : '?') : (p ? p.name : '?');
+  const displayName = isCustom
+    ? (() => {
+        const wh = (warehouses || []).find(w => w.id === item.warehouseId);
+        const it = (wh?.items || []).find(i => i.id === item.itemId);
+        return it ? `📦 ${it.name}` : '?';
+      })()
+    : isLiq ? (liq ? liq.name : '?') : (p ? p.name : '?');
 
   const doConfirm = () => {
     if (dailyCode && code.trim() !== dailyCode) { setErr(T.code_mismatch); return; }

@@ -15,7 +15,7 @@ import FinishedProducts from './components/FinishedProducts';
 import WorkerProfile from './components/WorkerProfile';
 import Manual from './components/Manual';
 
-const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'finished', 'inventory', 'program', 'attendance', 'history', 'stats', 'manual', 'admin'];
+const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'finished', 'program', 'attendance', 'history', 'stats', 'manual', 'admin'];
 const TABS_WORKER = ['dashboard', 'program', 'attendance', 'profile', 'manual', 'history'];
 
 export default function App() {
