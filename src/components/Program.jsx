@@ -20,7 +20,6 @@ export default function Program() {
   const [confirmItem, setConfirmItem] = useState(null); // {pi, ii, action, pendingRows}
   const [confirmBancale, setConfirmBancale] = useState(null); // {pi, ii, rowIdx, action}
   const [notesText, setNotesText] = useState(state.managerNotes[date] || '');
-  const [workerTab, setWorkerTab] = useState('line'); // 'line' | 'chem'
   const [viewingProduct, setViewingProduct] = useState(null);
 
   const setDate = (d) => {
@@ -91,19 +90,19 @@ export default function Program() {
       const effectiveLidId = it.pastaLidId || p.pastaLidId;
       const cartonsTotal = target * 12;
       const updatedPastaBoxes = effectiveBoxId
-        ? (state.pastaBoxes || []).map(pb => pb.id !== effectiveBoxId ? pb : { ...pb, stock: (pb.stock || 0) + sign * cartonsTotal * (1 + (s.wastePastaBox || 2) / 100) })
+        ? (state.pastaBoxes || []).map(pb => pb.id !== effectiveBoxId ? pb : { ...pb, stock: Math.max(0, (pb.stock || 0) + sign * cartonsTotal * (1 + (s.wastePastaBox || 2) / 100)) })
         : (state.pastaBoxes || []);
       const updatedPastaLids = effectiveLidId
-        ? (state.pastaLids || []).map(pl => pl.id !== effectiveLidId ? pl : { ...pl, stock: (pl.stock || 0) + sign * cartonsTotal * (1 + (s.wastePastaLid || 2) / 100) })
+        ? (state.pastaLids || []).map(pl => pl.id !== effectiveLidId ? pl : { ...pl, stock: Math.max(0, (pl.stock || 0) + sign * cartonsTotal * (1 + (s.wastePastaLid || 2) / 100)) })
         : (state.pastaLids || []);
       let updatedPastaStock = { ...(state.pastaStock || { sponges: 0, spongeLids: 0 }) };
       if (p.hasSponge) {
-        updatedPastaStock.sponges = (updatedPastaStock.sponges || 0) + sign * cartonsTotal * (1 + (s.wastePastaSponge || 2) / 100);
-        updatedPastaStock.spongeLids = (updatedPastaStock.spongeLids || 0) + sign * cartonsTotal * (1 + (s.wastePastaSpongeLid || 2) / 100);
+        updatedPastaStock.sponges = Math.max(0, (updatedPastaStock.sponges || 0) + sign * cartonsTotal * (1 + (s.wastePastaSponge || 2) / 100));
+        updatedPastaStock.spongeLids = Math.max(0, (updatedPastaStock.spongeLids || 0) + sign * cartonsTotal * (1 + (s.wastePastaSpongeLid || 2) / 100));
       }
       const liquid = (state.pastaLiquids || []).find(x => x.id === p.pastaLiquidId);
       const updatedPastaLiquids = liquid
-        ? (state.pastaLiquids || []).map(lq => lq.id !== liquid.id ? lq : { ...lq, stock: (lq.stock || 0) + sign * cartonsTotal * (p.liter || 0.5) * (1 + (s.wastePastaLiquid || 2) / 100) })
+        ? (state.pastaLiquids || []).map(lq => lq.id !== liquid.id ? lq : { ...lq, stock: Math.max(0, (lq.stock || 0) + sign * cartonsTotal * (p.liter || 0.5) * (1 + (s.wastePastaLiquid || 2) / 100)) })
         : (state.pastaLiquids || []);
       const rowsUpdate = action === 'done'
         ? { status: 'done', rows: pendingRows ?? makeRows(it).map(r => ({ ...r, done: true })) }
@@ -111,7 +110,7 @@ export default function Program() {
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
       // Pasta (carton) production adds finished bancale to the warehouse
       const fsPasta = { ...(state.finishedStock || {}) };
-      fsPasta[p.id] = (fsPasta[p.id] || 0) + (-sign) * target;
+      fsPasta[p.id] = Math.max(0, (fsPasta[p.id] || 0) + (-sign) * target);
       update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, finishedStock: fsPasta });
     } else {
       const prog = allProgs[pi];
@@ -123,7 +122,7 @@ export default function Program() {
       const cartonId = it.cartonId || p.cartonId;
       const cartonUnits = isAmazon ? target : target * piecesPerBancale;
       const updatedCartons = (cartonId && (p.hasCarton || isAmazon))
-        ? (state.cartonTypes || []).map(c => c.id !== cartonId ? c : { ...c, stock: (c.stock || 0) + sign * cartonUnits * (1 + (c.waste || 0) / 100) })
+        ? (state.cartonTypes || []).map(c => c.id !== cartonId ? c : { ...c, stock: Math.max(0, (c.stock || 0) + sign * cartonUnits * (1 + (c.waste || 0) / 100)) })
         : (state.cartonTypes || []);
 
       const rowsUpdate = action === 'done'
@@ -134,30 +133,30 @@ export default function Program() {
       if (isAmazon) {
         // Amazon: deduct from finished-goods warehouse (pieces → bancale), NO manufacturing
         const fs = { ...(state.finishedStock || {}) };
-        fs[p.id] = (fs[p.id] || 0) + sign * (target / piecesPerBancale);
+        fs[p.id] = Math.max(0, (fs[p.id] || 0) + sign * (target / piecesPerBancale));
         update({ programs: newProgs, finishedStock: fs, cartonTypes: updatedCartons });
       } else {
         // Linea / standard: deduct manufacturing materials + cartons
         const updatedProducts = state.products.map(prod => {
           if (prod.id !== p.id) return prod;
           return { ...prod, stock: { ...prod.stock,
-            ticketsFront: prod.stock.ticketsFront + sign * target * prod.ticketsFront * (1 + s.wasteTicket / 100),
-            ticketsBack:  prod.stock.ticketsBack  + sign * target * prod.ticketsBack  * (1 + s.wasteTicket / 100),
-            caps:      !prod.coverId  ? prod.stock.caps      + sign * target * prod.capsPer      * (1 + s.wasteCap / 100)      : prod.stock.caps,
-            jerricans: !prod.basketId ? prod.stock.jerricans + sign * target * prod.jerricansPer * (1 + s.wasteJerrican / 100) : prod.stock.jerricans,
+            ticketsFront: Math.max(0, prod.stock.ticketsFront + sign * target * prod.ticketsFront * (1 + s.wasteTicket / 100)),
+            ticketsBack:  Math.max(0, prod.stock.ticketsBack  + sign * target * prod.ticketsBack  * (1 + s.wasteTicket / 100)),
+            caps:      !prod.coverId  ? Math.max(0, prod.stock.caps      + sign * target * prod.capsPer      * (1 + s.wasteCap / 100))      : prod.stock.caps,
+            jerricans: !prod.basketId ? Math.max(0, prod.stock.jerricans + sign * target * prod.jerricansPer * (1 + s.wasteJerrican / 100)) : prod.stock.jerricans,
           }};
         });
         const effectiveCoverId  = it.coverId  || p.coverId;
         const effectiveBasketId = it.basketId || p.basketId;
         const updatedCovers = effectiveCoverId && p.capsPer > 0
-          ? state.covers.map(c => c.id !== effectiveCoverId ? c : { ...c, stock: (c.stock || 0) + sign * target * p.capsPer * (1 + s.wasteCap / 100) })
+          ? state.covers.map(c => c.id !== effectiveCoverId ? c : { ...c, stock: Math.max(0, (c.stock || 0) + sign * target * p.capsPer * (1 + s.wasteCap / 100)) })
           : state.covers;
         const updatedBaskets = effectiveBasketId && p.jerricansPer > 0
-          ? state.baskets.map(b => b.id !== effectiveBasketId ? b : { ...b, stock: (b.stock || 0) + sign * target * p.jerricansPer * (1 + s.wasteJerrican / 100) })
+          ? state.baskets.map(b => b.id !== effectiveBasketId ? b : { ...b, stock: Math.max(0, (b.stock || 0) + sign * target * p.jerricansPer * (1 + s.wasteJerrican / 100)) })
           : state.baskets;
         // Production adds the produced bancale to the finished-goods warehouse
         const fsLine = { ...(state.finishedStock || {}) };
-        fsLine[p.id] = (fsLine[p.id] || 0) + (-sign) * target;
+        fsLine[p.id] = Math.max(0, (fsLine[p.id] || 0) + (-sign) * target);
         update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, finishedStock: fsLine });
       }
     }
@@ -173,7 +172,7 @@ export default function Program() {
     if (!liq) return;
     const liters = Number(it.target) || 0;
     const sign = action === 'done' ? 1 : -1;
-    const updatedLiquids = (state.pastaLiquids || []).map(l => l.id !== liq.id ? l : { ...l, stock: (l.stock || 0) + sign * liters });
+    const updatedLiquids = (state.pastaLiquids || []).map(l => l.id !== liq.id ? l : { ...l, stock: Math.max(0, (l.stock || 0) + sign * liters) });
     const rowsUpdate = action === 'done'
       ? { status: 'done', rows: pendingRows ?? [{ done: true }] }
       : { status: 'pending', rows: [{ done: false }] };
@@ -242,14 +241,6 @@ export default function Program() {
               {doneRows} / {totalRows}
             </span>
           </div>
-          <div className="row" style={{ gap: 8, marginTop: 10, justifyContent: 'center' }}>
-            <button className={workerTab === 'line' ? 'primary' : 'ghost'} style={{ fontSize: 13, padding: '6px 18px' }} onClick={() => setWorkerTab('line')} title="Vista linea di produzione">
-              🏭 {state.lang === 'ar' ? 'خط الإنتاج' : 'Linea'}
-            </button>
-            <button className={workerTab === 'chem' ? 'primary' : 'ghost'} style={{ fontSize: 13, padding: '6px 18px' }} onClick={() => setWorkerTab('chem')} title="Vista chimico">
-              🧪 {state.lang === 'ar' ? 'الكيميائي' : 'Chimico'}
-            </button>
-          </div>
         </div>
 
         {/* Manager notes */}
@@ -260,11 +251,10 @@ export default function Program() {
           </div>
         )}
 
-        {workerTab === 'line' ? (
-          /* ===== LINE VIEW ===== */
-          (() => {
-            const dailyProgs = progs.filter(p => p.progType === 'daily' || p.progType === 'location');
-            const otherProgs = progs.filter(p => p.progType !== 'daily' && p.progType !== 'location');
+        {/* ===== LINE VIEW ===== */}
+        {(() => {
+            const dailyProgs = allProgs.filter(p => p.progType === 'daily' || p.progType === 'location');
+            const otherProgs = allProgs.filter(p => p.progType !== 'daily' && p.progType !== 'location');
 
             // Find maximum target across all daily/location items for matrix columns
             const dailyItems = dailyProgs.flatMap(pr => pr.items.filter(it => it.prepType !== 'liquid').map((it, ii) => ({ pr, it, pi: allProgs.indexOf(pr), ii })));
@@ -466,162 +456,7 @@ export default function Program() {
                 {dailyItems.length === 0 && otherProgs.length === 0 && <div className="empty">{T.no_program_today}</div>}
               </>
             );
-          })()
-        ) : (
-          /* ===== CHEMIST VIEW ===== */
-          (() => {
-            const chemProgs = allProgs.filter(pr => pr.progType === 'brazer' || pr.progType === 'daily' || pr.progType === 'location' || pr.progType === 'macro');
-            if (chemProgs.length === 0) return <div className="empty">{state.lang === 'ar' ? 'لا يوجد تحضيرات كيميائية اليوم' : 'Nessuna preparazione chimica oggi'}</div>;
-
-            // 1. Collect all explicit liquid preparations (from Pasta/Brazer programs where prepType === 'liquid')
-            const liquidTasks = chemProgs.flatMap(pr => 
-              pr.items.filter(it => it.prepType === 'liquid').map((it, idx) => ({ pr, it, pi: allProgs.indexOf(pr), ii: pr.items.indexOf(it), key: `${pr.id}-liq-${idx}` }))
-            );
-
-            // 2. Collect regular machine products that require chemical formulas
-            const lineRecipes = chemProgs.flatMap(pr => 
-              pr.items.filter(it => it.prepType !== 'liquid').map((it, idx) => {
-                const p = state.products.find(x => x.id === it.productId);
-                if (!p || (!p.recipe?.length && !p.isPasta)) return null;
-                return { pr, it, p, key: `${pr.id}-rec-${idx}` };
-              }).filter(Boolean)
-            );
-
-            return (
-              <>
-                {/* Section 1: Liquid Preparations (Active Tasks) */}
-                {liquidTasks.length > 0 && (
-                  <div className="card" style={{ marginBottom: 20, padding: 0, overflow: 'hidden', border: '1px solid var(--green)' }}>
-                    <div style={{ background: 'rgba(0,200,80,0.1)', padding: '12px 18px', borderBottom: '1px solid var(--green)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 20 }}>🧪</span>
-                      <h3 style={{ margin: 0, color: 'var(--green)' }}>{state.lang === 'ar' ? 'تحضيرات السوائل المطلوبة' : 'Preparazioni Liquidi Richieste'}</h3>
-                    </div>
-                    <div style={{ padding: 18 }}>
-                      {liquidTasks.map(({ pr, it, pi, ii, key }) => {
-                        const liq = (state.pastaLiquids || []).find(x => x.id === it.pastaLiquidId);
-                        const isDone = it.status === 'done';
-                        const chemist = (state.workers || []).find(w => w.id === pr.chemistId);
-                        
-                        return (
-                          <div key={key} style={{ background: isDone ? 'rgba(0,200,80,0.05)' : 'var(--bg)', borderRadius: 8, padding: '14px 18px', marginBottom: 12, border: isDone ? '1px solid var(--green)' : '1px solid var(--line)', position: 'relative', overflow: 'hidden' }}>
-                            {isDone && <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--green)' }}></div>}
-                            
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                              <div style={{ flex: 1, minWidth: 200 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                  <div style={{ fontWeight: 800, fontSize: 16 }}>{liq ? liq.name : '?'}</div>
-                                  <ProgBadge type={pr.progType} T={T} />
-                                  {chemist && <span className="badge warn" style={{ fontSize: 10 }}>🧪 {chemist.name}</span>}
-                                </div>
-                                <div style={{ fontSize: 13, marginBottom: 8 }}>
-                                  <span style={{ color: 'var(--muted)' }}>{state.lang === 'ar' ? 'الكمية المطلوبة' : 'Quantità'}:</span> <strong style={{ fontSize: 15, color: 'var(--text)' }}>{it.target} {state.lang === 'ar' ? 'لتر' : 'Litri'}</strong>
-                                </div>
-                                
-                                {liq && liq.recipe && liq.recipe.length > 0 && (
-                                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 6, display: 'inline-block' }}>
-                                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{state.lang === 'ar' ? 'المكونات' : 'Ingredienti'}</div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '4px 16px' }}>
-                                      {liq.recipe.map((r, i) => (
-                                        <div key={i} style={{ fontSize: 13, fontWeight: 600 }}>
-                                          <span style={{ color: 'var(--yellow)' }}>{r.name}</span>: <span className="mono">{(r.ratio * Number(it.target)).toFixed(2)}L</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                {liq && liq.prepNotes && (
-                                  <div style={{ marginTop: 10, fontSize: 12, color: 'var(--yellow)', display: 'flex', gap: 6 }}>
-                                    <span>⚠️</span> <span>{liq.prepNotes}</span>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div style={{ textAlign: 'center', minWidth: 120 }}>
-                                {isDone
-                                  ? (<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                                      <div style={{ color: 'var(--green)', fontWeight: 700, fontSize: 16 }}>✓ {state.lang === 'ar' ? 'تم التحضير' : 'Completato'}</div>
-                                      <button className="ghost" style={{ fontSize: 12 }} onClick={() => setConfirmItem({ pi, ii, action: 'undo' })}>↩ {state.lang === 'ar' ? 'تراجع' : 'Annulla'}</button>
-                                    </div>)
-                                  : (<button className="primary" style={{ padding: '10px 20px', fontSize: 14, fontWeight: 700, width: '100%' }} onClick={() => setConfirmItem({ pi, ii, action: 'done' })}>
-                                      ✓ {state.lang === 'ar' ? 'تأكيد التحضير' : 'Conferma'}
-                                    </button>)
-                                }
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Section 2: Reference Recipes for Line Products */}
-                {lineRecipes.length > 0 && (
-                  <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ background: 'var(--bg)', padding: '12px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 18 }}>📋</span>
-                      <h3 style={{ margin: 0 }}>{state.lang === 'ar' ? 'تركيبات المكن (مرجع)' : 'Ricette Macchine (Riferimento)'}</h3>
-                    </div>
-                    <div style={{ padding: '12px 18px' }}>
-                      <table className="sched-table">
-                        <thead>
-                          <tr>
-                            <th style={{ minWidth: 200 }}>{T.col_product}</th>
-                            <th style={{ width: 100 }}>{T.col_target}</th>
-                            <th>{state.lang === 'ar' ? 'التركيبة' : 'Ricetta'}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {lineRecipes.map(({ pr, it, p, key }) => {
-                            const isDone = it.status === 'done';
-                            const target = Number(it.target) || 0;
-                            let recipeDisplay = null;
-                            
-                            if (p.isPasta) {
-                              const liquid = (state.pastaLiquids || []).find(x => x.id === p.pastaLiquidId);
-                              recipeDisplay = liquid ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  <span style={{ fontSize: 16 }}>🧪</span>
-                                  <div>
-                                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--yellow)' }}>{liquid.name}</div>
-                                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{state.lang === 'ar' ? 'معد مسبقاً' : 'Pre-preparato'}</div>
-                                  </div>
-                                </div>
-                              ) : <span className="smallmuted">—</span>;
-                            } else if (p.recipe && p.recipe.length > 0) {
-                              recipeDisplay = (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                                  {p.recipe.map((r, i) => (
-                                    <div key={i} style={{ background: 'rgba(0,0,0,0.2)', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>
-                                      <span style={{ color: 'var(--yellow)' }}>{r.name}</span> <span className="mono">{(r.ratio * target).toFixed(2)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            } else {
-                              recipeDisplay = <span className="smallmuted">—</span>;
-                            }
-
-                            return (
-                              <tr key={key} style={{ opacity: isDone ? 0.5 : 1 }}>
-                                <td>
-                                  <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name} <ProgBadge type={pr.progType} T={T} /></div>
-                                  <div className="smallmuted" style={{ fontSize: 10 }}>{p.code}</div>
-                                </td>
-                                <td className="mono" style={{ fontWeight: 700 }}>{target} {state.lang === 'ar' ? 'بانكاله' : 'bancale'}</td>
-                                <td>{recipeDisplay}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-          })()
-        )}
+          })()}
 
         {confirmBancale && (
           <ConfirmBancaleModal
@@ -853,7 +688,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
       </div>
 
       {(progType === 'daily' || progType === 'location' || progType === 'macro' || progType === 'brazer') && (
-        <div className="grid cols-2" style={{ marginBottom: 14 }}>
+        <div className={`grid ${progType === 'location' ? 'cols-1' : 'cols-2'}`} style={{ marginBottom: 14 }}>
           <div className="field">
             <label>🧪 {state.lang === 'ar' ? 'الكيميائي المسؤول' : 'Chimico responsabile'}</label>
             <select value={chemistId} onChange={e => setChemistId(e.target.value)}>
@@ -861,16 +696,18 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
               {(state.workers || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
-          <div className="field">
-            <label>👷 {state.lang === 'ar' ? 'العمال' : 'Operai assegnati'}</label>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {(state.workers || []).map(w => (
-                <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={assignedWorkers.includes(w.id)} onChange={() => toggleWorker(w.id)} />{w.name}
-                </label>
-              ))}
+          {progType !== 'location' && (
+            <div className="field">
+              <label>👷 {state.lang === 'ar' ? 'العمال' : 'Operai assegnati'}</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(state.workers || []).map(w => (
+                  <label key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={assignedWorkers.includes(w.id)} onChange={() => toggleWorker(w.id)} />{w.name}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
