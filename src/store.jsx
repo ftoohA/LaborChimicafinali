@@ -27,7 +27,9 @@ const DEFAULTS = {
   pastaBoxes: [],
   pastaLids: [],
   cartonTypes: [],   // { id, name, size, stock, lowStock, waste }
-  finishedStock: {}, // { [productId]: bancale } — finished goods warehouse (Amazon)
+  lineaFinished:  {}, // { [productId]: bancale }  — Linea production output
+  pastaFinished:  {}, // { [productId]: cartons } — Pasta carton production output
+  amazonFinished: {}, // { [productId]: cartons } — Amazon processed cartons
   attendance: [],    // { id, workerId, date, clockIn, clockInPhoto, clockOut, clockOutPhoto, manual }
   breaks: {},        // { [date]: { [workerId]: "12:00 - 12:30" } } — daily break schedule (changes per day)
   warehouses: [],    // custom warehouses: { id, name, unit: 'liter'|'piece'|'carton', items: [{id,name,size,stock,lowStock,waste}] }
@@ -88,9 +90,11 @@ export function StoreProvider({ children }) {
           pastaLiquids: d.pastaLiquids ?? DEFAULTS.pastaLiquids,
           pastaBoxes:   d.pastaBoxes   ?? DEFAULTS.pastaBoxes,
           pastaLids:    d.pastaLids    ?? DEFAULTS.pastaLids,
-          cartonTypes:  d.cartonTypes  ?? DEFAULTS.cartonTypes,
-          finishedStock:d.finishedStock?? DEFAULTS.finishedStock,
-          attendance:   d.attendance   ?? DEFAULTS.attendance,
+          cartonTypes:   d.cartonTypes   ?? DEFAULTS.cartonTypes,
+          lineaFinished: d.lineaFinished ?? d.finishedStock ?? DEFAULTS.lineaFinished,
+          pastaFinished: d.pastaFinished ?? DEFAULTS.pastaFinished,
+          amazonFinished:d.amazonFinished?? DEFAULTS.amazonFinished,
+          attendance:    d.attendance    ?? DEFAULTS.attendance,
           breaks:       d.breaks       ?? DEFAULTS.breaks,
           warehouses:      d.warehouses      ?? DEFAULTS.warehouses,
           dailyCodes:      d.dailyCodes      ?? DEFAULTS.dailyCodes,
@@ -144,8 +148,10 @@ export function StoreProvider({ children }) {
             pastaLiquids: newState.pastaLiquids,
             pastaBoxes:   newState.pastaBoxes,
             pastaLids:    newState.pastaLids,
-            cartonTypes:  newState.cartonTypes,
-            finishedStock:newState.finishedStock,
+            cartonTypes:   newState.cartonTypes,
+            lineaFinished: newState.lineaFinished,
+            pastaFinished: newState.pastaFinished,
+            amazonFinished:newState.amazonFinished,
             attendance:      newState.attendance,
             breaks:          newState.breaks,
             warehouses:      newState.warehouses,
@@ -167,7 +173,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   /* ── update() — replaces partial state and triggers save ── */
-  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'finishedStock', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual']);
+  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'lineaFinished', 'pastaFinished', 'amazonFinished', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual']);
 
   const update = useCallback((partial) => {
     setState(s => {

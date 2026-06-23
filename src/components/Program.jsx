@@ -108,10 +108,10 @@ export default function Program() {
         ? { status: 'done', rows: pendingRows ?? makeRows(it).map(r => ({ ...r, done: true })) }
         : { status: 'pending', rows: makeRows(it).map(r => ({ ...r, done: false })) };
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
-      // Pasta (carton) production adds finished bancale to the warehouse
-      const fsPasta = { ...(state.finishedStock || {}) };
-      fsPasta[p.id] = Math.max(0, (fsPasta[p.id] || 0) + (-sign) * target);
-      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, finishedStock: fsPasta });
+      // Pasta carton production: store finished cartons (1 bancale = 12 cartons)
+      const pf = { ...(state.pastaFinished || {}) };
+      pf[p.id] = Math.max(0, (pf[p.id] || 0) + (-sign) * target * 12);
+      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, pastaFinished: pf });
     } else {
       const prog = allProgs[pi];
       const isAmazon = prog && prog.progType === 'amazon';
@@ -131,10 +131,12 @@ export default function Program() {
       const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
 
       if (isAmazon) {
-        // Amazon: deduct from finished-goods warehouse (pieces → bancale), NO manufacturing
-        const fs = { ...(state.finishedStock || {}) };
-        fs[p.id] = Math.max(0, (fs[p.id] || 0) + sign * (target / piecesPerBancale));
-        update({ programs: newProgs, finishedStock: fs, cartonTypes: updatedCartons });
+        // Amazon: deduct bancale from Linea stock (128 cartons = 1 bancale), add cartons to Amazon stock
+        const lf = { ...(state.lineaFinished || {}) };
+        const af = { ...(state.amazonFinished || {}) };
+        lf[p.id] = Math.max(0, (lf[p.id] || 0) + sign * (target / 128));
+        af[p.id] = Math.max(0, (af[p.id] || 0) + (-sign) * target);
+        update({ programs: newProgs, lineaFinished: lf, amazonFinished: af, cartonTypes: updatedCartons });
       } else {
         // Linea / standard: deduct manufacturing materials + cartons
         const updatedProducts = state.products.map(prod => {
@@ -154,10 +156,10 @@ export default function Program() {
         const updatedBaskets = effectiveBasketId && p.jerricansPer > 0
           ? state.baskets.map(b => b.id !== effectiveBasketId ? b : { ...b, stock: Math.max(0, (b.stock || 0) + sign * target * p.jerricansPer * (1 + s.wasteJerrican / 100)) })
           : state.baskets;
-        // Production adds the produced bancale to the finished-goods warehouse
-        const fsLine = { ...(state.finishedStock || {}) };
-        fsLine[p.id] = Math.max(0, (fsLine[p.id] || 0) + (-sign) * target);
-        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, finishedStock: fsLine });
+        // Linea production: add produced bancale to Linea finished stock
+        const lf = { ...(state.lineaFinished || {}) };
+        lf[p.id] = Math.max(0, (lf[p.id] || 0) + (-sign) * target);
+        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, lineaFinished: lf });
       }
     }
     addLog({ type: action === 'done' ? 'produce' : 'undo', product: p.code, target, date, by: state.role });
@@ -670,7 +672,9 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
       }));
     }
     if (!items.length) { toast('—', true); return; }
-    onSave({ id: uid(), label: label || T[`prog_${progType}`], progType, chemistId: chemistId || '', assignedWorkers, items });
+    // Liquid pasta items belong to Chimico (location), not Pasta (brazer)
+    const savedType = isLiquidPrep ? 'location' : progType;
+    onSave({ id: uid(), label: label || T[`prog_${savedType}`], progType: savedType, chemistId: chemistId || '', assignedWorkers, items });
   };
 
   return (
@@ -850,7 +854,7 @@ function AmazonProgramModal({ date, T, state, onClose, onSave }) {
           </thead>
           <tbody>
             {rows.map(row => {
-              const avail = Number((state.finishedStock || {})[row.productId] || 0);
+              const avail = Number((state.lineaFinished || {})[row.productId] || 0);
               return (
                 <tr key={row.id}>
                   <td style={{ padding: '4px 3px' }}>

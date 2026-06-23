@@ -47,7 +47,7 @@ const DELIVERY_TYPES = {
 export function exportDayExcel(ctx) {
   const { log = [], products = [], workers = [], attendance = [], cartonTypes = [],
     covers = [], baskets = [], pastaBoxes = [], pastaLids = [], pastaLiquids = [],
-    finishedStock = {}, pastaStock = {}, date } = ctx;
+    lineaFinished = {}, pastaFinished = {}, amazonFinished = {}, pastaStock = {}, date } = ctx;
 
   const nameById = (id) => {
     if (!id) return '';
@@ -114,8 +114,14 @@ export function exportDayExcel(ctx) {
   pastaLiquids.forEach(l => pushStock('Liquidi pasta', l.name, l.stock || 0, 'L', e => e.id === l.id || e.name === l.name));
   pushStock('Materie pasta', 'Spugne', pastaStock.sponges || 0, 'pz', e => e.material === 'sponges');
   pushStock('Materie pasta', 'Coperchi spugna', pastaStock.spongeLids || 0, 'pz', e => e.material === 'spongeLids');
-  Object.entries(finishedStock).forEach(([pid, q]) => {
-    if ((q || 0) !== 0) pushStock('Prodotti finiti', nameById(pid), Number(q) || 0, 'bancale', e => e.productId === pid);
+  Object.entries(lineaFinished).forEach(([pid, q]) => {
+    if ((q || 0) !== 0) pushStock('Linea finiti', nameById(pid), Number(q) || 0, 'bancale', e => e.productId === pid);
+  });
+  Object.entries(pastaFinished).forEach(([pid, q]) => {
+    if ((q || 0) !== 0) pushStock('Pasta finita', nameById(pid), Number(q) || 0, 'cartoni', e => e.productId === pid);
+  });
+  Object.entries(amazonFinished).forEach(([pid, q]) => {
+    if ((q || 0) !== 0) pushStock('Amazon', nameById(pid), Number(q) || 0, 'cartoni', e => e.productId === pid);
   });
   if (stockRows.length === 0) stockRows.push({ Magazzino: 'Nessun articolo', Articolo: '', Giacenza: '', Unità: '', 'Ultima consegna': '' });
 

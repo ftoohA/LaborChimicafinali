@@ -17,7 +17,8 @@ export default function History() {
       log: state.log, products: state.products, workers: state.workers, attendance: state.attendance,
       cartonTypes: state.cartonTypes, covers: state.covers, baskets: state.baskets,
       pastaBoxes: state.pastaBoxes, pastaLids: state.pastaLids, pastaLiquids: state.pastaLiquids,
-      finishedStock: state.finishedStock, pastaStock: state.pastaStock,
+      lineaFinished: state.lineaFinished, pastaFinished: state.pastaFinished,
+      amazonFinished: state.amazonFinished, pastaStock: state.pastaStock,
       date: expDate,
     });
   };
