@@ -277,12 +277,18 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
       pastaLiquidId: form.isPasta ? form.pastaLiquidId : null,
       pastaBoxId: form.isPasta ? form.pastaBoxId : null,
       pastaLidId: form.isPasta ? form.pastaLidId : null,
-      stock: existing?.stock || {
-        ticketsFront: Number(form.initFront) || 0,
-        ticketsBack:  Number(form.initBack)  || 0,
-        caps:         Number(form.initCaps)  || 0,
-        jerricans:    Number(form.initJerricans) || 0,
-      },
+      stock: existing?.stock
+        ? {
+            ...existing.stock,
+            ticketsFront: (existing.stock.ticketsFront || 0) + (Number(form.initFront) || 0),
+            ticketsBack:  (existing.stock.ticketsBack  || 0) + (Number(form.initBack)  || 0),
+          }
+        : {
+            ticketsFront: Number(form.initFront) || 0,
+            ticketsBack:  Number(form.initBack)  || 0,
+            caps:         Number(form.initCaps)  || 0,
+            jerricans:    Number(form.initJerricans) || 0,
+          },
     });
   };
 
@@ -568,19 +574,27 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
         );
       })()}
 
-      {/* Initial stock — only when creating */}
-      {!existing && !form.isPasta && (
+      {/* Label stock — initial on create, add-to-warehouse on edit */}
+      {!form.isPasta && (
         <>
           <hr className="sep" />
-          <p className="smallmuted" style={{ margin: '0 0 8px' }}>📦 {T.initial_stock}</p>
+          <p className="smallmuted" style={{ margin: '0 0 8px' }}>
+            📦 {existing ? 'Aggiungi etichette al magazzino' : T.initial_stock}
+          </p>
           <div className="grid cols-2">
             <div className="field">
-              <label>{T.tickets_front} ({T.pieces})</label>
-              <input type="number" value={form.initFront} onChange={e => set('initFront', e.target.value)} />
+              <label>
+                {T.tickets_front} ({T.pieces})
+                {existing && <span className="smallmuted" style={{ marginInlineStart: 6 }}>· {(existing.stock?.ticketsFront || 0).toLocaleString()} in magazzino</span>}
+              </label>
+              <input type="number" value={form.initFront} onChange={e => set('initFront', e.target.value)} placeholder={existing ? '+ aggiungi' : ''} />
             </div>
             <div className="field">
-              <label>{T.tickets_back} ({T.pieces})</label>
-              <input type="number" value={form.initBack} onChange={e => set('initBack', e.target.value)} />
+              <label>
+                {T.tickets_back} ({T.pieces})
+                {existing && <span className="smallmuted" style={{ marginInlineStart: 6 }}>· {(existing.stock?.ticketsBack || 0).toLocaleString()} in magazzino</span>}
+              </label>
+              <input type="number" value={form.initBack} onChange={e => set('initBack', e.target.value)} placeholder={existing ? '+ aggiungi' : ''} />
             </div>
           </div>
         </>
