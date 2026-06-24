@@ -193,7 +193,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
 
   const handleImageFile = (file) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast('الصورة أكبر من 5MB', true); return; }
+    if (file.size > 5 * 1024 * 1024) { toast('Immagine oltre 5MB', true); return; }
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
@@ -287,7 +287,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
           </div>
         ))}
         <div className="field" style={{ gridColumn: '1 / -1' }}>
-          <label>📷 صورة المنتج</label>
+          <label>📷 Immagine prodotto</label>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
             onChange={e => handleImageFile(e.target.files[0])} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -296,8 +296,8 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
               : <div style={{ width: 72, height: 72, borderRadius: 8, border: '2px dashed var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 22 }}>🖼</div>
             }
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <button type="button" onClick={() => fileRef.current.click()}>اختر صورة</button>
-              {form.image && <button type="button" className="ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={() => set('image', '')}>حذف الصورة</button>}
+              <button type="button" onClick={() => fileRef.current.click()}>Scegli immagine</button>
+              {form.image && <button type="button" className="ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={() => set('image', '')}>Rimuovi immagine</button>}
             </div>
           </div>
         </div>
@@ -411,7 +411,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
         <>
           {/* Labels per bancale */}
           <hr className="sep" />
-          <p className="smallmuted" style={{ margin: '0 0 8px' }}>تيكتا / بانكاله</p>
+          <p className="smallmuted" style={{ margin: '0 0 8px' }}>Etichette / bancale</p>
           <div className="grid cols-2">
             <div className="field">
               <label>{T.tickets_front}</label>
@@ -425,7 +425,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
 
           {/* Covers & baskets */}
           <hr className="sep" />
-          <p className="smallmuted" style={{ margin: '0 0 8px' }}>غطاءات وجراكن / بانكاله</p>
+          <p className="smallmuted" style={{ margin: '0 0 8px' }}>Coperchi e taniche / bancale</p>
           <div className="grid cols-2">
             <div className="field">
               <label>{T.caps_per} ({T.pieces})</label>
@@ -474,15 +474,15 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
           {/* Recipe (طريقة التحضير) */}
           <hr className="sep" />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <p className="smallmuted" style={{ margin: 0, fontWeight: 700 }}>🧪 طريقة التحضير (المكونات لكل 1 لتر)</p>
+            <p className="smallmuted" style={{ margin: 0, fontWeight: 700 }}>🧪 Preparazione (ingredienti per 1 litro)</p>
             <button type="button" className="primary" style={{ padding: '2px 8px', fontSize: 11 }} onClick={addRecipeIngredient}>
-              + إضافة مكون
+              + Aggiungi ingrediente
             </button>
           </div>
-          
+
           {recipe.length === 0 ? (
             <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic', margin: '8px 0' }}>
-              لا توجد مكونات مضافة لطريقة التحضير بعد.
+              Nessun ingrediente aggiunto.
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
@@ -504,7 +504,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
                     value={ing.ratio}
                     onChange={e => updateRecipeIngredient(ing.id || idx, 'ratio', e.target.value)}
                   />
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--muted)', width: 45 }}>لتر/لتر</span>
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--muted)', width: 45 }}>L/L</span>
                   <button
                     type="button"
                     className="ghost"

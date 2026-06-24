@@ -46,12 +46,6 @@ export default function App() {
         <div className="logo"><img src="/logo.svg" alt="Laborchimica" /></div>
         <div className="spacer" />
         <span className="tag">{state.role === 'admin' ? T.role_admin : T.role_worker}</span>
-        <select value={state.lang} onChange={e => update({ lang: e.target.value })}>
-          <option value="ar">العربية</option>
-          <option value="it">Italiano</option>
-          <option value="en">English</option>
-          <option value="es">Español</option>
-        </select>
         <button onClick={() => update({ role: null })}>{T.logout}</button>
       </header>
       <nav>

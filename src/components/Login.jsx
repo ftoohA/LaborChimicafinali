@@ -30,12 +30,6 @@ export default function Login() {
       <header>
         <div className="logo"><div className="dot" />{T.title}</div>
         <div className="spacer" />
-        <select value={state.lang} onChange={e => update({ lang: e.target.value })}>
-          <option value="ar">العربية</option>
-          <option value="it">Italiano</option>
-          <option value="en">English</option>
-          <option value="es">Español</option>
-        </select>
       </header>
       <div className="login-wrap">
         <div className="login-box">

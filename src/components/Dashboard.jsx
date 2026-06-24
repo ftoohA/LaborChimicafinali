@@ -394,7 +394,7 @@ export default function Dashboard() {
             <div className="num" style={{ color: 'var(--orange)' }}>
               {lowBaskets.length + lowJerricanProds.length}
             </div>
-            <div className="lbl">🪣 جراكن ناقصة</div>
+            <div className="lbl">🪣 Taniche basse</div>
           </div>
         )}
       </div>
@@ -421,7 +421,7 @@ export default function Dashboard() {
 
       {hasBasketAlert && (
         <div className="card" style={{ borderColor: 'var(--orange)', marginBottom: 16 }}>
-          <h3 style={{ color: 'var(--orange)', marginBottom: 12 }}>🪣 جراكن ناقصة — تحتاج تعبية</h3>
+          <h3 style={{ color: 'var(--orange)', marginBottom: 12 }}>🪣 Taniche basse — da rifornire</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lowBaskets.map(b => (
               <div key={b.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)' }}>

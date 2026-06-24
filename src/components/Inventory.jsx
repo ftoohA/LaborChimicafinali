@@ -326,7 +326,7 @@ export default function Inventory() {
             </div>
             {(filterColor !== 'all' || filterSize !== 'all') && (
               <button className="ghost" style={{ fontSize: 12, marginTop: 16 }}
-                onClick={() => { setFilterColor('all'); setFilterSize('all'); }}>✕ مسح التصفية</button>
+                onClick={() => { setFilterColor('all'); setFilterSize('all'); }}>✕ Azzera filtri</button>
             )}
           </div>
         </div>

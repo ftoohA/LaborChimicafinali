@@ -15,9 +15,9 @@ const DEFAULTS = {
   dailyCodes: {},
   log: [],
   companies: [
-    { id: 'c1', name: 'شركة الفجر' },
-    { id: 'c2', name: 'شركة النور' },
-    { id: 'c3', name: 'شركة الأمل' },
+    { id: 'c1', name: 'Azienda 1' },
+    { id: 'c2', name: 'Azienda 2' },
+    { id: 'c3', name: 'Azienda 3' },
   ],
   adminPass: '',
   workerPass: '',
@@ -45,7 +45,7 @@ const REF_LOG   = (db) => doc(db, 'factory', 'log');
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState({
-    lang: localStorage.getItem('lang') || 'it',
+    lang: 'it', // app is Italian-only
     role: localStorage.getItem('role') || null,
     ...DEFAULTS,
     tab: 'dashboard',
