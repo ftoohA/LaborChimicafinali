@@ -328,13 +328,25 @@ function getAttachments(obj) {
   return arr;
 }
 
-function downloadAttachment(att) {
-  const a = document.createElement('a');
-  a.href = att.data;
-  a.download = att.name || 'file';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+// Convert a base64 data URL into a Blob so the browser can open it in a tab
+function dataUrlToBlob(dataUrl) {
+  const [meta, b64] = String(dataUrl).split(',');
+  const mime = (meta.match(/:(.*?);/) || [])[1] || 'application/octet-stream';
+  const bin = atob(b64 || '');
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// Open an attachment in a new browser tab (PDFs/images render inline)
+function openAttachment(att) {
+  try {
+    const url = URL.createObjectURL(dataUrlToBlob(att.data));
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    window.open(att.data, '_blank', 'noopener');
+  }
 }
 
 function AttachmentsEditor({ L, attachments = [], onChange }) {
@@ -405,9 +417,9 @@ function AttachmentsView({ L, attachments, onZoom }) {
       {attachments.map(a => a.kind === 'image'
         ? <img key={a.id} src={a.data} alt="" onClick={() => onZoom?.(a.data)}
             style={{ width: 130, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer' }} />
-        : <button key={a.id} type="button" onClick={() => downloadAttachment(a)}
+        : <button key={a.id} type="button" onClick={() => openAttachment(a)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '8px 12px' }}>
-            📄 {a.name || tr(L, 'ملف', 'File', 'File')}
+            📄 {a.name || tr(L, 'ملف', 'File', 'File')} ↗
           </button>
       )}
     </div>
