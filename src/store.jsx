@@ -36,6 +36,8 @@ const DEFAULTS = {
   announcements: [], // { id, text, photo, createdAt, active }
   scheduledAlerts: [], // { id, text, dayOfWeek (0=Sun…6=Sat), hour, active }
   manual: [],        // { id, progType, title, body, image, sizeConfigs:[{size,notes}] }
+  approvedDevices: [], // { id, name, ts } — devices allowed to open the system
+  pendingDevices: [],  // { id, name, ua, ts } — devices awaiting supervisor approval
 };
 
 // Firestore document references
@@ -101,6 +103,8 @@ export function StoreProvider({ children }) {
           announcements:   d.announcements   ?? DEFAULTS.announcements,
           scheduledAlerts: d.scheduledAlerts ?? DEFAULTS.scheduledAlerts,
           manual:          d.manual          ?? DEFAULTS.manual,
+          approvedDevices: d.approvedDevices ?? DEFAULTS.approvedDevices,
+          pendingDevices:  d.pendingDevices  ?? DEFAULTS.pendingDevices,
         }));
       }
       markLoaded();
@@ -159,6 +163,8 @@ export function StoreProvider({ children }) {
             announcements:   newState.announcements,
             scheduledAlerts: newState.scheduledAlerts,
             manual:          newState.manual,
+            approvedDevices: newState.approvedDevices,
+            pendingDevices:  newState.pendingDevices,
           }),
           setDoc(REF_PROGS(db), { programs: newState.programs }),
           setDoc(REF_LOG(db),   { entries: newState.log.slice(-800) }),
@@ -173,7 +179,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   /* ── update() — replaces partial state and triggers save ── */
-  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'lineaFinished', 'pastaFinished', 'amazonFinished', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual']);
+  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'lineaFinished', 'pastaFinished', 'amazonFinished', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual', 'approvedDevices', 'pendingDevices']);
 
   const update = useCallback((partial) => {
     setState(s => {

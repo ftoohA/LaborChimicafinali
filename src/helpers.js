@@ -87,6 +87,16 @@ export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+// Persistent per-device identifier (stored in this browser's localStorage)
+export function getDeviceId() {
+  let id = localStorage.getItem('deviceId');
+  if (!id) {
+    id = 'dev_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    localStorage.setItem('deviceId', id);
+  }
+  return id;
+}
+
 // Round a session to the nearest 0.5h using factory rules:
 // ≤20 min → 0, 21-44 min → 0.5h, ≥45 min → 1h per block
 export function roundedHours(clockIn, clockOut) {

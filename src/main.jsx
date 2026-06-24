@@ -5,13 +5,16 @@ import App from './App.jsx'
 import { StoreProvider } from './store.jsx'
 import { ToastProvider } from './components/Toast.jsx'
 import { ConfirmProvider } from './components/ConfirmDialog.jsx'
+import DeviceGate from './components/DeviceGate.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <StoreProvider>
       <ToastProvider>
         <ConfirmProvider>
-          <App />
+          <DeviceGate>
+            <App />
+          </DeviceGate>
         </ConfirmProvider>
       </ToastProvider>
     </StoreProvider>

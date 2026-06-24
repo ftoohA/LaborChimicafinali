@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { I18N, ADMIN_PASS, WORKER_PASS } from '../i18n';
-import { uid, roundedHours } from '../helpers';
+import { uid, roundedHours, getDeviceId } from '../helpers';
 import Modal from './Modal';
 
 export default function Admin() {
@@ -53,6 +53,30 @@ export default function Admin() {
     if (!(await confirm({ danger: true, title: T.confirm_delete, message: w.name }))) return;
     update({ workers: (state.workers || []).filter(x => x.id !== w.id) });
     toast(T.deleted);
+  };
+
+  // ── Device access control ──
+  const thisDeviceId = getDeviceId();
+  const approvedDevices = state.approvedDevices || [];
+  const pendingDevices = state.pendingDevices || [];
+  const tr = (ar, it, en) => (state.lang === 'ar' ? ar : state.lang === 'it' ? it : en);
+
+  const approveDevice = (d) => {
+    update({
+      approvedDevices: [...approvedDevices.filter(x => x.id !== d.id), { id: d.id, name: d.name, ts: Date.now() }],
+      pendingDevices: pendingDevices.filter(x => x.id !== d.id),
+    });
+    toast(tr('تمت الموافقة على الجهاز', 'Dispositivo approvato', 'Device approved'));
+  };
+  const rejectDevice = async (d) => {
+    if (!(await confirm({ danger: true, title: tr('رفض الجهاز؟', 'Rifiutare il dispositivo?', 'Reject device?'), message: d.name }))) return;
+    update({ pendingDevices: pendingDevices.filter(x => x.id !== d.id) });
+    toast(tr('تم الرفض', 'Rifiutato', 'Rejected'));
+  };
+  const revokeDevice = async (d) => {
+    if (!(await confirm({ danger: true, title: tr('سحب صلاحية الجهاز؟', "Revocare l'accesso?", 'Revoke access?'), message: d.name }))) return;
+    update({ approvedDevices: approvedDevices.filter(x => x.id !== d.id) });
+    toast(tr('تم السحب', 'Revocato', 'Revoked'));
   };
 
   return (
@@ -218,6 +242,69 @@ export default function Admin() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Device access control */}
+      <div className="card" style={{ borderColor: pendingDevices.length ? 'var(--orange)' : 'var(--line)' }}>
+        <h3 style={{ margin: '0 0 4px' }}>
+          🔐 {tr('أمان الأجهزة', 'Sicurezza dispositivi', 'Device security')}
+          {pendingDevices.length > 0 && <span className="badge warn" style={{ marginInlineStart: 8 }}>{pendingDevices.length}</span>}
+        </h3>
+        <p className="smallmuted" style={{ marginTop: 0 }}>
+          {tr('لا يدخل النظام إلا الأجهزة الموافق عليها. وافق على الأجهزة الجديدة من هنا.',
+              'Solo i dispositivi approvati possono accedere. Approva qui i nuovi dispositivi.',
+              'Only approved devices can access. Approve new devices here.')}
+        </p>
+
+        {/* Pending requests */}
+        {pendingDevices.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: 'var(--orange)' }}>
+              ⏳ {tr('طلبات بانتظار الموافقة', 'Richieste in attesa', 'Pending requests')}
+            </div>
+            {pendingDevices.map(d => (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)', marginBottom: 6, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 160 }}>
+                  <div style={{ fontWeight: 700 }}>{d.name}</div>
+                  <div className="smallmuted" style={{ fontSize: 10 }}>{new Date(d.ts).toLocaleString()} · {d.ua}</div>
+                </div>
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="primary" style={{ fontSize: 12, padding: '4px 12px' }} onClick={() => approveDevice(d)}>✓ {tr('موافقة', 'Approva', 'Approve')}</button>
+                  <button className="danger ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => rejectDevice(d)}>✕ {tr('رفض', 'Rifiuta', 'Reject')}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Approved devices */}
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+          ✅ {tr('الأجهزة الموافق عليها', 'Dispositivi approvati', 'Approved devices')}
+        </div>
+        {approvedDevices.length === 0 ? (
+          <div className="empty">{tr('لا يوجد', 'Nessuno', 'None')}</div>
+        ) : (
+          <table>
+            <tbody>
+              {approvedDevices.map(d => (
+                <tr key={d.id}>
+                  <td style={{ fontWeight: 600 }}>
+                    {d.name}
+                    {d.id === thisDeviceId && <span className="badge ok" style={{ marginInlineStart: 8, fontSize: 10 }}>{tr('هذا الجهاز', 'Questo dispositivo', 'This device')}</span>}
+                  </td>
+                  <td className="smallmuted" style={{ fontSize: 11 }}>{d.ts ? new Date(d.ts).toLocaleDateString() : ''}</td>
+                  <td style={{ textAlign: 'end' }}>
+                    {d.id !== thisDeviceId && (
+                      <button className="danger ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => revokeDevice(d)}>
+                        🚫 {tr('سحب', 'Revoca', 'Revoke')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
