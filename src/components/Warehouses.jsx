@@ -32,8 +32,12 @@ export default function Warehouses() {
   const warehouses = state.warehouses || [];
   const saveWh = (next) => update({ warehouses: next });
 
-  const createWarehouse = (name, unit) => {
-    saveWh([...warehouses, { id: uid(), name, unit, items: [] }]);
+  // Ingredient options for recipes: items from warehouses flagged "used in preparation"
+  const prepOptions = warehouses.filter(w => w.usedInPrep).flatMap(w =>
+    (w.items || []).map(it => ({ warehouseId: w.id, itemId: it.id, name: it.name, whName: w.name, unit: w.unit })));
+
+  const createWarehouse = (name, unit, usedInPrep) => {
+    saveWh([...warehouses, { id: uid(), name, unit, usedInPrep: !!usedInPrep, items: [] }]);
     addLog({ type: 'warehouse_created', name, by: state.role });
     toast(T.success_added);
     setCreating(false);
@@ -171,7 +175,9 @@ export default function Warehouses() {
         return (
           <div className="card" key={wh.id}>
             <div className="flex-between">
-              <h3 style={{ margin: 0 }}>📦 {wh.name} <span className="smallmuted" style={{ fontSize: 12 }}>· {unitLabel(L, wh.unit)}</span></h3>
+              <h3 style={{ margin: 0 }}>📦 {wh.name} <span className="smallmuted" style={{ fontSize: 12 }}>· {unitLabel(L, wh.unit)}</span>
+                {wh.usedInPrep && <span className="badge ok" style={{ marginInlineStart: 8, fontSize: 10 }}>🧪 {tr(L, 'تحضير', 'Prep.', 'Prep')}</span>}
+              </h3>
               {isAdmin && (
                 <div className="row" style={{ gap: 6 }}>
                   <button onClick={() => setAddingItem(wh.id)}>+ {tr(L, 'صنف', 'Articolo', 'Item')}</button>
@@ -265,7 +271,7 @@ export default function Warehouses() {
         onSave={b => { update({ pastaLids: [...(state.pastaLids || []), b] }); toast(T.success_added); setAddingPastaLid(false); }} />}
 
       {editingPastaLiquid !== null && (
-        <PastaLiquidModal L={L} T={T} existing={editingPastaLiquid || null}
+        <PastaLiquidModal L={L} T={T} existing={editingPastaLiquid || null} prepOptions={prepOptions}
           onClose={() => setEditingPastaLiquid(null)}
           onSave={liq => {
             if (editingPastaLiquid) update({ pastaLiquids: (state.pastaLiquids || []).map(p => p.id === liq.id ? liq : p) });
@@ -295,8 +301,9 @@ function CreateWarehouseModal({ L, T, onClose, onSave }) {
   const toast = useToast();
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('piece');
+  const [usedInPrep, setUsedInPrep] = useState(false);
   return (
-    <Modal onClose={onClose} maxWidth={380}>
+    <Modal onClose={onClose} maxWidth={420}>
       <h3>📦 {tr(L, 'إضافة مخزن جديد', 'Nuovo magazzino', 'New Warehouse')}</h3>
       <div className="field">
         <label>{tr(L, 'اسم المخزن', 'Nome magazzino', 'Warehouse name')}</label>
@@ -310,9 +317,20 @@ function CreateWarehouseModal({ L, T, onClose, onSave }) {
           ))}
         </div>
       </div>
+      {/* Is this warehouse a source of ingredients for product preparation? */}
+      <div className="field">
+        <label>{tr(L, 'استخدام المخزن', 'Uso del magazzino', 'Warehouse use')}</label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 400 }}>
+          <input type="checkbox" checked={usedInPrep} onChange={e => setUsedInPrep(e.target.checked)} style={{ width: 18, height: 18 }} />
+          {tr(L,
+            'مواد تُستخدم في تحضير المنتجات (تظهر كمكوّنات في الوصفات)',
+            'Materiali usati nella preparazione (appaiono come ingredienti nelle ricette)',
+            'Materials used in product preparation (shown as recipe ingredients)')}
+        </label>
+      </div>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
-        <button className="primary" onClick={() => { if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; } onSave(name.trim(), unit); }}>{T.save}</button>
+        <button className="primary" onClick={() => { if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; } onSave(name.trim(), unit, usedInPrep); }}>{T.save}</button>
       </div>
     </Modal>
   );
@@ -452,24 +470,31 @@ function PastaMaterialModal({ L, T, title, onClose, onSave }) {
   );
 }
 
-function PastaLiquidModal({ L, T, existing, onClose, onSave }) {
+function PastaLiquidModal({ L, T, existing, prepOptions = [], onClose, onSave }) {
   const toast = useToast();
   const [name, setName] = useState(existing?.name || '');
   const [stock, setStock] = useState(existing?.stock ?? 0);
   const [prepNotes, setPrepNotes] = useState(existing?.prepNotes || '');
-  const [recipe, setRecipe] = useState((existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name, ratio: r.ratio })));
+  const [recipe, setRecipe] = useState((existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name, ratio: r.ratio, warehouseId: r.warehouseId || '', itemId: r.itemId || '' })));
 
-  const addIng = () => setRecipe(r => [...r, { id: uid(), name: '', ratio: '' }]);
+  const addIng = () => setRecipe(r => [...r, { id: uid(), name: '', ratio: '', warehouseId: '', itemId: '' }]);
   const updIng = (id, f, v) => setRecipe(r => r.map(x => x.id === id ? { ...x, [f]: v } : x));
   const remIng = (id) => setRecipe(r => r.filter(x => x.id !== id));
+  // Pick a warehouse item as ingredient (or '' for manual free text)
+  const pickSource = (id, key) => {
+    const opt = prepOptions.find(o => `${o.warehouseId}:${o.itemId}` === key);
+    setRecipe(r => r.map(x => x.id !== id ? x : opt
+      ? { ...x, warehouseId: opt.warehouseId, itemId: opt.itemId, name: opt.name }
+      : { ...x, warehouseId: '', itemId: '' }));
+  };
 
   const handleSave = () => {
     if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; }
-    onSave({ id: existing?.id || uid(), name: name.trim(), stock: existing ? (existing.stock || 0) : (Number(stock) || 0), prepNotes: prepNotes.trim(), recipe: recipe.filter(r => r.name.trim() && Number(r.ratio) > 0).map(r => ({ id: r.id, name: r.name.trim(), ratio: Number(r.ratio) })) });
+    onSave({ id: existing?.id || uid(), name: name.trim(), stock: existing ? (existing.stock || 0) : (Number(stock) || 0), prepNotes: prepNotes.trim(), recipe: recipe.filter(r => r.name.trim() && Number(r.ratio) > 0).map(r => ({ id: r.id, name: r.name.trim(), ratio: Number(r.ratio), warehouseId: r.warehouseId || '', itemId: r.itemId || '' })) });
   };
 
   return (
-    <Modal onClose={onClose} maxWidth={500}>
+    <Modal onClose={onClose} maxWidth={560}>
       <h3>🧪 {existing ? tr(L, 'تعديل سائل', 'Modifica liquido', 'Edit Liquid') : tr(L, 'إضافة سائل جديد', 'Aggiungi nuovo liquido', 'Add New Liquid')}</h3>
       <div className="grid cols-2" style={{ marginBottom: 12 }}>
         <div className="field"><label>{tr(L, 'اسم السائل', 'Nome liquido', 'Liquid Name')}</label><input autoFocus value={name} onChange={e => setName(e.target.value)} /></div>
@@ -479,14 +504,30 @@ function PastaLiquidModal({ L, T, existing, onClose, onSave }) {
         <label style={{ fontWeight: 'bold' }}>🧪 {tr(L, 'المكونات (لكل لتر)', 'Ingredienti (per 1L)', 'Ingredients (per 1L)')}</label>
         <button className="primary" style={{ padding: '2px 8px', fontSize: 11 }} onClick={addIng}>+ {tr(L, 'مكون', 'Ingrediente', 'Ingredient')}</button>
       </div>
-      {recipe.map((ing, idx) => (
-        <div key={ing.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-          <input className="input-sm" style={{ flex: 2 }} placeholder={tr(L, 'اسم المكون', 'Nome ingrediente', 'Ingredient')} value={ing.name} onChange={e => updIng(ing.id, 'name', e.target.value)} />
-          <input className="input-sm" type="number" step="any" style={{ flex: 1, minWidth: 80 }} placeholder={tr(L, 'النسبة', 'Proporzione', 'Ratio')} value={ing.ratio} onChange={e => updIng(ing.id, 'ratio', e.target.value)} />
+      {prepOptions.length > 0 && (
+        <p className="smallmuted" style={{ fontSize: 11, marginTop: 0 }}>
+          {tr(L, 'اختر المكوّن من مخازن التحضير ليُخصم تلقائياً عند تجهيز السائل.',
+                'Scegli un ingrediente dai magazzini di preparazione: verrà scalato automaticamente.',
+                'Pick an ingredient from prep warehouses; it is auto-deducted when the liquid is prepared.')}
+        </p>
+      )}
+      {recipe.map((ing, idx) => {
+        const curKey = ing.warehouseId && ing.itemId ? `${ing.warehouseId}:${ing.itemId}` : '';
+        return (
+        <div key={ing.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+          {prepOptions.length > 0 && (
+            <select className="input-sm" style={{ flex: 1, minWidth: 120 }} value={curKey} onChange={e => pickSource(ing.id, e.target.value)}>
+              <option value="">{tr(L, '✏️ يدوي', '✏️ Manuale', '✏️ Manual')}</option>
+              {prepOptions.map(o => <option key={`${o.warehouseId}:${o.itemId}`} value={`${o.warehouseId}:${o.itemId}`}>{o.name} · {o.whName}</option>)}
+            </select>
+          )}
+          <input className="input-sm" style={{ flex: 2, minWidth: 110 }} placeholder={tr(L, 'اسم المكون', 'Nome ingrediente', 'Ingredient')} value={ing.name} onChange={e => updIng(ing.id, 'name', e.target.value)} disabled={!!curKey} />
+          <input className="input-sm" type="number" step="any" style={{ flex: 1, minWidth: 70 }} placeholder={tr(L, 'النسبة', 'Proporzione', 'Ratio')} value={ing.ratio} onChange={e => updIng(ing.id, 'ratio', e.target.value)} />
           <span className="mono" style={{ fontSize: 11, color: 'var(--muted)', width: 40 }}>L/L</span>
           <button className="ghost" style={{ color: 'var(--red)', padding: '4px 8px' }} onClick={() => remIng(ing.id)}>✕</button>
         </div>
-      ))}
+        );
+      })}
       <div className="field" style={{ marginTop: 12 }}>
         <label style={{ fontWeight: 'bold' }}>📝 {tr(L, 'خطوات التحضير', 'Passaggi preparazione', 'Preparation Steps')}</label>
         <textarea value={prepNotes} onChange={e => setPrepNotes(e.target.value)} style={{ minHeight: 70 }} placeholder={tr(L, 'خطوات للكيميائي...', 'Passaggi per il chimico...', 'Steps for chemist...')} />

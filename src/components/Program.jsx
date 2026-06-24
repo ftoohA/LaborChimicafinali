@@ -168,7 +168,7 @@ export default function Program() {
     setConfirmItem(null);
   };
 
-  /* ---- Liquid prep: add liters to base liquid stock ---- */
+  /* ---- Liquid prep: add liters to base liquid stock, consume recipe ingredients ---- */
   const handleLiquidConfirm = ({ pi, ii, action, pendingRows }) => {
     const it = allProgs[pi].items[ii];
     const liq = (state.pastaLiquids || []).find(x => x.id === it.pastaLiquidId);
@@ -176,11 +176,28 @@ export default function Program() {
     const liters = Number(it.target) || 0;
     const sign = action === 'done' ? 1 : -1;
     const updatedLiquids = (state.pastaLiquids || []).map(l => l.id !== liq.id ? l : { ...l, stock: Math.max(0, (l.stock || 0) + sign * liters) });
+
+    // Consume recipe ingredients linked to prep warehouses (done → deduct, undo → add back)
+    const whSign = action === 'done' ? -1 : 1;
+    const linked = (liq.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.ratio) > 0);
+    let updatedWarehouses = state.warehouses || [];
+    if (linked.length) {
+      updatedWarehouses = updatedWarehouses.map(w => {
+        const ings = linked.filter(r => r.warehouseId === w.id);
+        if (!ings.length) return w;
+        return { ...w, items: (w.items || []).map(itm => {
+          const ing = ings.find(r => r.itemId === itm.id);
+          if (!ing) return itm;
+          return { ...itm, stock: Math.max(0, (itm.stock || 0) + whSign * Number(ing.ratio) * liters) };
+        }) };
+      });
+    }
+
     const rowsUpdate = action === 'done'
       ? { status: 'done', rows: pendingRows ?? [{ done: true }] }
       : { status: 'pending', rows: [{ done: false }] };
     const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
-    update({ programs: newProgs, pastaLiquids: updatedLiquids });
+    update({ programs: newProgs, pastaLiquids: updatedLiquids, warehouses: updatedWarehouses });
     addLog({ type: action === 'done' ? 'liquid_prep' : 'liquid_undo', liquid: liq.name, liters, date, by: state.role });
     toast(action === 'done' ? T.success_done : T.success_undo);
     setConfirmItem(null);
