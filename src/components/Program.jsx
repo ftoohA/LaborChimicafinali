@@ -272,10 +272,11 @@ export default function Program() {
 
         {/* ===== LINE VIEW ===== */}
         {(() => {
-            const dailyProgs = allProgs.filter(p => p.progType === 'daily' || p.progType === 'location');
+            const dailyProgs = allProgs.filter(p => p.progType === 'daily');
+            const chimicoProgs = allProgs.filter(p => p.progType === 'location');
             const otherProgs = allProgs.filter(p => p.progType !== 'daily' && p.progType !== 'location');
 
-            // Find maximum target across all daily/location items for matrix columns
+            // Find maximum target across all daily items for matrix columns
             const dailyItems = dailyProgs.flatMap(pr => pr.items.filter(it => it.prepType !== 'liquid').map((it, ii) => ({ pr, it, pi: allProgs.indexOf(pr), ii })));
             const maxTarget = Math.max(1, ...dailyItems.map(x => Number(x.it.target) || 1));
 
@@ -386,6 +387,77 @@ export default function Program() {
                   </div>
                 )}
 
+                {/* CHIMICO (location) -> shown to workers/chemist incl. liquid prep */}
+                {chimicoProgs.map(pr => {
+                  const realPi = allProgs.indexOf(pr);
+                  if (!pr.items.length) return null;
+                  const chemist = (state.workers || []).find(w => w.id === pr.chemistId);
+                  return (
+                    <div className="card prog-section" key={pr.id} style={{ marginBottom: 16, borderColor: 'var(--green)' }}>
+                      <div className="prog-header" style={{ marginBottom: 10 }}>
+                        <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <ProgBadge type={pr.progType} T={T} />
+                          <span style={{ fontWeight: 700, fontSize: 15 }}>{pr.label || (state.lang === 'ar' ? 'الكيميائي' : 'Chimico')}</span>
+                          {chemist && <span className="badge warn" style={{ fontSize: 10 }}>🧪 {chemist.name}</span>}
+                        </div>
+                      </div>
+                      <div className="sched-wrap">
+                        <table className="sched-table">
+                          <thead>
+                            <tr>
+                              <th style={{ minWidth: 200 }}>{T.col_product}</th>
+                              <th style={{ width: 90 }}>{T.col_target}</th>
+                              <th style={{ width: 60, textAlign: 'center' }}>✓</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pr.items.map((it, ii) => {
+                              const isDone = it.status === 'done';
+                              const isLiq = it.prepType === 'liquid';
+                              const isCustom = it.type === 'custom_material';
+                              let name = '?', sub = '', qtyLabel = it.target;
+                              if (isLiq) {
+                                const liq = (state.pastaLiquids || []).find(x => x.id === it.pastaLiquidId);
+                                name = `🧪 ${liq ? liq.name : '?'}`;
+                                qtyLabel = `${it.target} ${state.lang === 'ar' ? 'لتر' : 'L'}`;
+                              } else if (isCustom) {
+                                const wh = (state.warehouses || []).find(w => w.id === it.warehouseId);
+                                const whItem = (wh?.items || []).find(i => i.id === it.itemId);
+                                name = `📦 ${whItem?.name || '?'}`;
+                                sub = wh?.name || '';
+                                const u = wh?.unit === 'liter' ? 'L' : wh?.unit === 'carton' ? (state.lang === 'ar' ? 'كرتونة' : 'cart.') : (state.lang === 'ar' ? 'قطعة' : 'pz');
+                                qtyLabel = `${it.target} ${u}`;
+                              } else {
+                                const p = state.products.find(x => x.id === it.productId);
+                                name = p ? p.name : '?';
+                                sub = p?.code || '';
+                              }
+                              return (
+                                <tr key={`${realPi}-${ii}`} className={isDone ? 'row-done' : 'row-pending'}>
+                                  <td style={{ verticalAlign: 'middle' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 13 }}>{name}</div>
+                                    {sub && <div className="smallmuted" style={{ fontSize: 10 }}>{sub}</div>}
+                                  </td>
+                                  <td className="mono" style={{ fontWeight: 700, verticalAlign: 'middle' }}>{qtyLabel}</td>
+                                  <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                    {isDone
+                                      ? (<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                          <button className="ghost" style={{ fontSize: 14, padding: '2px 6px' }} title="Annulla" onClick={() => setConfirmItem({ pi: realPi, ii, action: 'undo' })}>↩</button>
+                                          <span style={{ color: 'var(--green)', fontSize: 20, fontWeight: 700 }}>✓</span>
+                                        </span>)
+                                      : (<button className="primary" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setConfirmItem({ pi: realPi, ii, action: 'done' })}>{state.lang === 'ar' ? 'تأكيد' : 'Conferma'}</button>)
+                                    }
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+
                 {/* OTHER PROGRAMS (Amazon, Brazer, Macro) -> Simple List */}
                 {otherProgs.length > 0 && otherProgs.map(pr => {
                   const realPi = allProgs.indexOf(pr);
@@ -472,7 +544,7 @@ export default function Program() {
                   );
                 })}
 
-                {dailyItems.length === 0 && otherProgs.length === 0 && <div className="empty">{T.no_program_today}</div>}
+                {dailyItems.length === 0 && otherProgs.length === 0 && chimicoProgs.length === 0 && <div className="empty">{T.no_program_today}</div>}
               </>
             );
           })()}
@@ -491,7 +563,8 @@ export default function Program() {
           <ConfirmCodeModal
             item={allProgs[confirmItem.pi]?.items[confirmItem.ii]}
             action={confirmItem.action}
-            T={T} dailyCode={todayCode} products={state.products} pastaLiquids={state.pastaLiquids || []} lang={state.lang}
+            T={T} dailyCode={todayCode} products={state.products} pastaLiquids={state.pastaLiquids || []}
+            warehouses={state.warehouses || []} lang={state.lang}
             onClose={() => setConfirmItem(null)}
             onConfirm={() => handleConfirm(confirmItem)}
           />
@@ -852,8 +925,8 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
       </div>
       <button style={{ marginTop: 8 }} onClick={addRow}>+ {isLiquidPrep ? (state.lang === 'ar' ? 'سائل' : 'Liquido') : T.select_product}</button>
 
-      {/* Custom warehouse materials */}
-      {(state.warehouses || []).length > 0 && (
+      {/* Custom warehouse materials — only when producing (not in liquid prep) */}
+      {!isLiquidPrep && (state.warehouses || []).length > 0 && (
         <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 13 }}>

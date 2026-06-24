@@ -137,6 +137,7 @@ export default function Manual() {
 
 function SectionDetail({ L, section, isAdmin, onBack, onEdit, onDelete }) {
   const [activeSize, setActiveSize] = useState(section.sizeConfigs?.[0]?.size || null);
+  const [zoom, setZoom] = useState(null);
   const currentConfig = section.sizeConfigs?.find(sc => sc.size === activeSize);
 
   return (
@@ -161,6 +162,8 @@ function SectionDetail({ L, section, isAdmin, onBack, onEdit, onDelete }) {
         <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, color: 'var(--text)', marginBottom: 16 }}>{section.body}</p>
       )}
 
+      <AttachmentsView L={L} attachments={section.attachments} onZoom={setZoom} />
+
       {section.sizeConfigs?.length > 0 && (
         <>
           <h3 style={{ marginBottom: 10, color: 'var(--muted)', fontSize: 14 }}>
@@ -179,13 +182,18 @@ function SectionDetail({ L, section, isAdmin, onBack, onEdit, onDelete }) {
           {currentConfig && (
             <div className="card" style={{ background: 'var(--panel)', margin: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>⚙️ {activeSize}</div>
-              {currentConfig.image && (
-                <img src={currentConfig.image} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 10 }} />
-              )}
-              <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, margin: 0 }}>{currentConfig.notes}</p>
+              <AttachmentsView L={L} attachments={getAttachments(currentConfig)} onZoom={setZoom} />
+              {currentConfig.notes && <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, margin: 0 }}>{currentConfig.notes}</p>}
             </div>
           )}
         </>
+      )}
+
+      {zoom && (
+        <div onClick={() => setZoom(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20, cursor: 'zoom-out' }}>
+          <img src={zoom} alt="" style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: 8 }} />
+        </div>
       )}
     </div>
   );
@@ -194,8 +202,6 @@ function SectionDetail({ L, section, isAdmin, onBack, onEdit, onDelete }) {
 function SectionEditModal({ L, section, activeType, onClose, onSave }) {
   const toast = useToast();
   const fileRef = useRef();
-  const sizeFileRef = useRef();
-  const [sizeFileIdx, setSizeFileIdx] = useState(null);
 
   const [f, setF] = useState({
     id: section?.id || uid(),
@@ -203,7 +209,13 @@ function SectionEditModal({ L, section, activeType, onClose, onSave }) {
     title: section?.title || '',
     body: section?.body || '',
     image: section?.image || '',
-    sizeConfigs: section?.sizeConfigs ? section.sizeConfigs.map(sc => ({ ...sc })) : [],
+    attachments: section?.attachments ? [...section.attachments] : [],
+    sizeConfigs: section?.sizeConfigs ? section.sizeConfigs.map(sc => ({
+      size: sc.size || '',
+      notes: sc.notes || '',
+      // migrate legacy single `image` into the attachments array
+      attachments: sc.attachments ? [...sc.attachments] : (sc.image ? [{ id: uid(), kind: 'image', data: sc.image }] : []),
+    })) : [],
   });
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
 
@@ -224,7 +236,7 @@ function SectionEditModal({ L, section, activeType, onClose, onSave }) {
     img.src = url;
   };
 
-  const addSize = () => set('sizeConfigs', [...f.sizeConfigs, { size: '', notes: '', image: '' }]);
+  const addSize = () => set('sizeConfigs', [...f.sizeConfigs, { size: '', notes: '', attachments: [] }]);
   const delSize = (i) => set('sizeConfigs', f.sizeConfigs.filter((_, idx) => idx !== i));
   const setSize = (i, field, val) => set('sizeConfigs', f.sizeConfigs.map((sc, idx) => idx !== i ? sc : { ...sc, [field]: val }));
 
@@ -239,8 +251,6 @@ function SectionEditModal({ L, section, activeType, onClose, onSave }) {
 
       <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => compress(e.target.files?.[0], img => set('image', img))} />
-      <input ref={sizeFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-        onChange={e => compress(e.target.files?.[0], img => setSize(sizeFileIdx, 'image', img))} />
 
       <div className="field">
         <label>{tr(L, 'نوع البرنامج', 'Tipo programma', 'Program type')}</label>
@@ -269,6 +279,11 @@ function SectionEditModal({ L, section, activeType, onClose, onSave }) {
           placeholder={tr(L, 'اكتب هنا طريقة الاستخدام والنصائح...', 'Scrivi qui le istruzioni e i consigli...', 'Write usage instructions and tips here...')} />
       </div>
 
+      <div className="field">
+        <label>📎 {tr(L, 'مرفقات إضافية (صور وملفات)', 'Allegati extra (immagini e file)', 'Extra attachments (images & files)')}</label>
+        <AttachmentsEditor L={L} attachments={f.attachments} onChange={(arr) => set('attachments', arr)} />
+      </div>
+
       {/* Size configs */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <label style={{ fontWeight: 700 }}>{tr(L, 'إعدادات حسب الحجم (اختياري)', 'Configurazione per dimensione (opzionale)', 'Size-specific config (optional)')}</label>
@@ -286,14 +301,8 @@ function SectionEditModal({ L, section, activeType, onClose, onSave }) {
             <button className="danger ghost" style={{ marginTop: 22, padding: '6px 10px' }} onClick={() => delSize(i)}>✕</button>
           </div>
           <div className="field" style={{ margin: '0 0 8px' }}>
-            <label style={{ fontSize: 11 }}>{tr(L, 'الصورة', 'Immagine', 'Image')}</label>
-            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-              {sc.image && <img src={sc.image} alt="" style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4 }} />}
-              <button type="button" style={{ fontSize: 11 }} onClick={() => { setSizeFileIdx(i); sizeFileRef.current?.click(); }}>
-                📷 {tr(L, 'صورة', 'Immagine', 'Photo')}
-              </button>
-              {sc.image && <button type="button" className="danger ghost" style={{ fontSize: 11 }} onClick={() => setSize(i, 'image', '')}>✕</button>}
-            </div>
+            <label style={{ fontSize: 11 }}>{tr(L, 'صور وملفات', 'Immagini e file', 'Images & files')}</label>
+            <AttachmentsEditor L={L} attachments={sc.attachments || []} onChange={(arr) => setSize(i, 'attachments', arr)} />
           </div>
           <div className="field" style={{ margin: 0 }}>
             <label style={{ fontSize: 11 }}>{tr(L, 'التفاصيل لهذا الحجم', 'Dettagli per questa dimensione', 'Details for this size')}</label>
@@ -308,5 +317,99 @@ function SectionEditModal({ L, section, activeType, onClose, onSave }) {
         <button className="primary" onClick={handleSave}>{tr(L, 'حفظ', 'Salva', 'Save')}</button>
       </div>
     </Modal>
+  );
+}
+
+/* ---- Attachments (images + arbitrary files) ---- */
+// Merge legacy single `image` field into the attachments array for display
+function getAttachments(obj) {
+  const arr = obj?.attachments ? [...obj.attachments] : [];
+  if (obj?.image) arr.unshift({ id: 'legacy', kind: 'image', data: obj.image });
+  return arr;
+}
+
+function downloadAttachment(att) {
+  const a = document.createElement('a');
+  a.href = att.data;
+  a.download = att.name || 'file';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function AttachmentsEditor({ L, attachments = [], onChange }) {
+  const toast = useToast();
+  const imgRef = useRef();
+  const fileRef = useRef();
+
+  const compressImg = (file, cb) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1000;
+      const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * sc), h = Math.round(img.height * sc);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(canvas.toDataURL('image/jpeg', 0.72));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  const addImage = (file) => {
+    if (!file) return;
+    compressImg(file, data => onChange([...attachments, { id: uid(), kind: 'image', name: file.name?.slice(0, 40) || '', data }]));
+  };
+  const addFile = (file) => {
+    if (!file) return;
+    if (file.size > 900 * 1024) { toast(tr(L, 'الملف كبير جداً (أقصى 900KB)', 'File troppo grande (max 900KB)', 'File too large (max 900KB)'), true); return; }
+    const fr = new FileReader();
+    fr.onload = () => onChange([...attachments, { id: uid(), kind: 'file', name: file.name || 'file', data: fr.result }]);
+    fr.readAsDataURL(file);
+  };
+  const del = (id) => onChange(attachments.filter(a => a.id !== id));
+
+  return (
+    <div>
+      <input ref={imgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { addImage(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={e => { addFile(e.target.files?.[0]); e.target.value = ''; }} />
+      <div className="row" style={{ gap: 8, marginBottom: attachments.length ? 8 : 0 }}>
+        <button type="button" style={{ fontSize: 11 }} onClick={() => imgRef.current?.click()}>📷 {tr(L, 'صورة', 'Immagine', 'Image')}</button>
+        <button type="button" style={{ fontSize: 11 }} onClick={() => fileRef.current?.click()}>📎 {tr(L, 'ملف', 'File', 'File')}</button>
+      </div>
+      {attachments.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {attachments.map(a => (
+            <div key={a.id} style={{ position: 'relative' }}>
+              {a.kind === 'image'
+                ? <img src={a.data} alt="" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)' }} />
+                : <div style={{ width: 90, height: 70, borderRadius: 6, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, padding: 4, fontSize: 18, background: 'var(--bg)' }}>
+                    📄<span style={{ fontSize: 9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 82 }}>{a.name}</span>
+                  </div>}
+              <button type="button" className="danger" style={{ position: 'absolute', top: -6, insetInlineEnd: -6, borderRadius: '50%', width: 20, height: 20, padding: 0, fontSize: 11 }} onClick={() => del(a.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttachmentsView({ L, attachments, onZoom }) {
+  if (!attachments?.length) return null;
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+      {attachments.map(a => a.kind === 'image'
+        ? <img key={a.id} src={a.data} alt="" onClick={() => onZoom?.(a.data)}
+            style={{ width: 130, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer' }} />
+        : <button key={a.id} type="button" onClick={() => downloadAttachment(a)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '8px 12px' }}>
+            📄 {a.name || tr(L, 'ملف', 'File', 'File')}
+          </button>
+      )}
+    </div>
   );
 }
