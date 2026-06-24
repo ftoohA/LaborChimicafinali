@@ -748,8 +748,23 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
         )}
       </div>
 
-      {(progType === 'daily' || progType === 'location' || progType === 'macro' || progType === 'brazer') && (
-        <div className={`grid ${progType === 'location' ? 'cols-1' : 'cols-2'}`} style={{ marginBottom: 14 }}>
+      {isBrazer && (
+        <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>{state.lang === 'ar' ? 'نوع التحضير:' : 'Tipo preparazione:'}</span>
+          <button className={prepType === 'carton' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '4px 14px' }} onClick={() => { setPrepType('carton'); setChemistId(''); setRows([emptyRow()]); }}>📦 {state.lang === 'ar' ? 'كراتين' : 'Cartoni'}</button>
+          <button className={prepType === 'liquid' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '4px 14px' }} onClick={() => { setPrepType('liquid'); setAssignedWorkers([]); setRows([emptyRow()]); }}>🧪 {state.lang === 'ar' ? 'سائل' : 'Liquido'}</button>
+        </div>
+      )}
+
+      {(() => {
+        // Chemist shown for chimico-type work; hidden for pasta-cartons.
+        // Workers shown for production work; hidden for pasta-liquid (chemist-only) and chimico.
+        const showChemist = (progType === 'daily' || progType === 'location' || progType === 'macro' || progType === 'brazer') && !(isBrazer && prepType === 'carton');
+        const showWorkers = (progType === 'daily' || progType === 'macro' || progType === 'brazer') && !(isBrazer && prepType === 'liquid');
+        if (!showChemist && !showWorkers) return null;
+        return (
+        <div className={`grid ${showChemist && showWorkers ? 'cols-2' : 'cols-1'}`} style={{ marginBottom: 14 }}>
+          {showChemist && (
           <div className="field">
             <label>🧪 {state.lang === 'ar' ? 'الكيميائي المسؤول' : 'Chimico responsabile'}</label>
             <select value={chemistId} onChange={e => setChemistId(e.target.value)}>
@@ -757,7 +772,8 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
               {(state.workers || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
-          {progType !== 'location' && (
+          )}
+          {showWorkers && (
             <div className="field">
               <label>👷 {state.lang === 'ar' ? 'العمال' : 'Operai assegnati'}</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -770,15 +786,8 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
             </div>
           )}
         </div>
-      )}
-
-      {isBrazer && (
-        <div style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{ fontWeight: 600, fontSize: 13 }}>{state.lang === 'ar' ? 'نوع التحضير:' : 'Tipo preparazione:'}</span>
-          <button className={prepType === 'carton' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '4px 14px' }} onClick={() => { setPrepType('carton'); setRows([emptyRow()]); }}>📦 {state.lang === 'ar' ? 'كراتين' : 'Cartoni'}</button>
-          <button className={prepType === 'liquid' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '4px 14px' }} onClick={() => { setPrepType('liquid'); setRows([emptyRow()]); }}>🧪 {state.lang === 'ar' ? 'سائل' : 'Liquido'}</button>
-        </div>
-      )}
+        );
+      })()}
 
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
