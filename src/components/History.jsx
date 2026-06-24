@@ -5,6 +5,29 @@ import { todayStr } from '../helpers';
 import { exportDayExcel } from '../exportExcel';
 import ProgBadge from './ProgBadge';
 
+// Italian labels for movement-log action types
+const LOG_LABELS = {
+  produce: 'Produzione', undo: 'Annullato',
+  program_added: 'Programma aggiunto', delete_program: 'Programma eliminato',
+  carry_over: 'Riporto', carry_item: 'Riporto articolo',
+  liquid_prep: 'Preparazione liquido', liquid_undo: 'Annullo liquido', liquid_done: 'Liquido preparato',
+  custom_material_used: 'Materiale usato', custom_material_undo: 'Annullo materiale',
+  restock: 'Rifornimento',
+  cover_stock_add: 'Carico coperchi', basket_stock_add: 'Carico taniche',
+  pasta_stock_add: 'Carico materie pasta', pasta_liquid_stock_add: 'Carico liquido pasta',
+  pasta_box_stock_add: 'Carico scatole pasta', pasta_lid_stock_add: 'Carico coperchi pasta',
+  product_saved: 'Prodotto salvato', delete_product: 'Prodotto eliminato',
+  settings_updated: 'Impostazioni aggiornate', worker_rated: 'Valutazione operaio',
+  warehouse_created: 'Magazzino creato', warehouse_item_added: 'Articolo aggiunto',
+  warehouse_stock_add: 'Carico magazzino', carton_added: 'Cartone aggiunto',
+  linea_add: 'Carico Linea', linea_out: 'Spedizione Linea',
+  pasta_add: 'Carico Pasta', pasta_out: 'Spedizione Pasta',
+  amazon_out: 'Spedizione Amazon', combined_order_out: 'Ordine spedito',
+  finished_stock_add: 'Carico prodotti finiti', finished_order_out: 'Ordine prodotti finiti',
+  clock_in: 'Entrata', clock_out: 'Uscita',
+};
+const logLabel = (t) => LOG_LABELS[t] || t;
+
 export default function History() {
   const { state } = useStore();
   const T = I18N[state.lang];
@@ -130,7 +153,7 @@ export default function History() {
               {[...state.log].reverse().slice(0, 150).map((l, i) => (
                 <tr key={i}>
                   <td className="smallmuted">{new Date(l.time).toLocaleString()}</td>
-                  <td>{l.type}</td>
+                  <td>{logLabel(l.type)}</td>
                   <td className="mono">{l.product || ''}</td>
                   <td className="smallmuted">{T.logged_by}: {l.by || ''}</td>
                 </tr>
