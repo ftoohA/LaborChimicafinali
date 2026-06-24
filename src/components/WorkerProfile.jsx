@@ -59,6 +59,10 @@ export default function WorkerProfile() {
 
   // --- PIN change ---
   const handlePinChange = (newPin) => {
+    if (workers.some(w => w.id !== workerId && w.pin && w.pin === newPin)) {
+      toast(tr(L, 'هذا الرقم السري مستخدم بالفعل', 'PIN già in uso', 'PIN already in use'), true);
+      return; // keep modal open
+    }
     update({ workers: workers.map(w => w.id === workerId ? { ...w, pin: newPin } : w) });
     toast(tr(L, 'تم تغيير الرقم السري', 'PIN aggiornato', 'PIN updated'));
     setChangingPin(false);

@@ -227,15 +227,15 @@ export default function Admin() {
           onSave={company => { update({ companies: [...state.companies, company] }); toast(T.success_added); setAddingCompany(false); }} />
       )}
       {addingWorker && (
-        <WorkerModal T={T} lang={state.lang} onClose={() => setAddingWorker(false)}
+        <WorkerModal T={T} lang={state.lang} workers={workers} onClose={() => setAddingWorker(false)}
           onSave={worker => { update({ workers: [...(state.workers || []), worker] }); toast(T.success_added); setAddingWorker(false); }} />
       )}
       {editingWorker && (
-        <WorkerModal T={T} lang={state.lang} worker={editingWorker} onClose={() => setEditingWorker(null)}
+        <WorkerModal T={T} lang={state.lang} worker={editingWorker} workers={workers} onClose={() => setEditingWorker(null)}
           onSave={worker => { update({ workers: workers.map(w => w.id === worker.id ? worker : w) }); toast(T.success_added); setEditingWorker(null); }} />
       )}
       {editingWorkerPin && (
-        <EditPinModal lang={state.lang} T={T} worker={editingWorkerPin} onClose={() => setEditingWorkerPin(null)}
+        <EditPinModal lang={state.lang} T={T} worker={editingWorkerPin} workers={workers} onClose={() => setEditingWorkerPin(null)}
           onSave={pin => { update({ workers: (state.workers || []).map(w => w.id === editingWorkerPin.id ? { ...w, pin } : w) }); toast(T.success_added); setEditingWorkerPin(null); }} />
       )}
     </>
@@ -328,7 +328,7 @@ function CompanyModal({ T, onClose, onSave }) {
 }
 
 /* ---- Worker Modal (add + edit) ---- */
-function WorkerModal({ T, lang, worker, onClose, onSave }) {
+function WorkerModal({ T, lang, worker, workers = [], onClose, onSave }) {
   const toast = useToast();
   const tr = (ar, it, en) => (lang === 'ar' ? ar : lang === 'it' ? it : en);
   const isEdit = !!worker;
@@ -365,6 +365,9 @@ function WorkerModal({ T, lang, worker, onClose, onSave }) {
 
   const handleSave = () => {
     if (!name.trim()) { toast(tr('الاسم مطلوب', 'Il nome è obbligatorio', 'Name is required'), true); return; }
+    if (pin.trim() && workers.some(w => w.id !== worker?.id && w.pin && w.pin === pin.trim())) {
+      toast(tr('هذا الرقم السري مستخدم بالفعل', 'PIN già in uso', 'PIN already in use'), true); return;
+    }
     onSave({
       ...(worker || {}),
       id: worker?.id || uid(),
@@ -444,20 +447,27 @@ function WorkerModal({ T, lang, worker, onClose, onSave }) {
 }
 
 /* ---- Edit PIN Modal ---- */
-function EditPinModal({ lang, T, worker, onClose, onSave }) {
+function EditPinModal({ lang, T, worker, workers = [], onClose, onSave }) {
   const toast = useToast();
   const [pin, setPin] = useState(worker.pin || '');
   const tr = (ar, it, en) => (lang === 'ar' ? ar : lang === 'it' ? it : en);
+  const doSave = () => {
+    if (!pin.trim()) { toast('—', true); return; }
+    if (workers.some(w => w.id !== worker.id && w.pin && w.pin === pin.trim())) {
+      toast(tr('هذا الرقم السري مستخدم بالفعل', 'PIN già in uso', 'PIN already in use'), true); return;
+    }
+    onSave(pin.trim());
+  };
   return (
     <Modal onClose={onClose} maxWidth={340}>
       <h3>🔒 {tr('تغيير الرقم السري', 'Cambia PIN', 'Change PIN')} — {worker.name}</h3>
       <div className="field">
         <label>{tr('الرقم السري الجديد', 'Nuovo PIN', 'New PIN')}</label>
-        <input autoFocus value={pin} onChange={e => setPin(e.target.value)} placeholder={tr('مثال: 1234', 'es: 1234', 'e.g. 1234')} onKeyDown={e => e.key === 'Enter' && (pin.trim() ? onSave(pin.trim()) : toast('—', true))} />
+        <input autoFocus value={pin} onChange={e => setPin(e.target.value)} placeholder={tr('مثال: 1234', 'es: 1234', 'e.g. 1234')} onKeyDown={e => e.key === 'Enter' && doSave()} />
       </div>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
-        <button className="primary" onClick={() => { if (pin.trim()) onSave(pin.trim()); else toast('—', true); }}>{T.save}</button>
+        <button className="primary" onClick={doSave}>{T.save}</button>
       </div>
     </Modal>
   );
