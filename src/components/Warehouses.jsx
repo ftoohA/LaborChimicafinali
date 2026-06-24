@@ -7,7 +7,8 @@ import { uid } from '../helpers';
 import Modal from './Modal';
 
 const tr = (L, ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
-const unitLabel = (L, u) => (u === 'liter' ? tr(L, 'لتر', 'Litri', 'Liters') : u === 'carton' ? tr(L, 'كرتونة', 'Cartoni', 'Cartons') : tr(L, 'قطعة', 'Pezzi', 'Pieces'));
+const UNIT_LABELS = { liter: 'L', ml: 'ml', kg: 'kg', g: 'g', carton: 'cart.', piece: 'pz' };
+const unitLabel = (L, u) => UNIT_LABELS[u] || tr(L, 'قطعة', 'Pezzi', 'Pieces');
 
 export default function Warehouses() {
   const { state, update, addLog } = useStore();
@@ -315,8 +316,8 @@ function CreateWarehouseModal({ L, T, onClose, onSave }) {
       </div>
       <div className="field">
         <label>{tr(L, 'وحدة التعامل', 'Unità di misura', 'Unit')}</label>
-        <div className="row" style={{ gap: 8 }}>
-          {[['liter', tr(L, 'لتر', 'Litri', 'Liters')], ['piece', tr(L, 'قطعة', 'Pezzi', 'Pieces')], ['carton', tr(L, 'كرتونة', 'Cartoni', 'Cartons')]].map(([u, lbl]) => (
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          {[['liter', tr(L, 'لتر', 'Litri', 'Liters')], ['ml', tr(L, 'ملي لتر', 'Millilitri', 'ml')], ['kg', tr(L, 'كيلو', 'Kg', 'kg')], ['g', tr(L, 'جرام', 'Grammi', 'g')], ['piece', tr(L, 'قطعة', 'Pezzi', 'Pieces')], ['carton', tr(L, 'كرتونة', 'Cartoni', 'Cartons')]].map(([u, lbl]) => (
             <button key={u} className={unit === u ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setUnit(u)}>{lbl}</button>
           ))}
         </div>

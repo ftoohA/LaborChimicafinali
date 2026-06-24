@@ -78,6 +78,29 @@ export default function Program() {
     return it.rows ?? Array.from({ length: n }, () => ({ done: false }));
   };
 
+  /* ---- Composition consumption: deduct recipe materials from prep warehouses ----
+     Base material per bancale = (pasta: 12 cartoni · else: taniche) × litri del prodotto.
+     Per ingredient = percent% × base × target × (1 + scarto%), in the warehouse's unit
+     (ml/g use the ×1000 scale; liter/kg stay as-is, density ≈ 1). */
+  const consumeRecipe = (p, target, sign) => {
+    const recipe = (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0);
+    if (!recipe.length) return state.warehouses || [];
+    const litersPerBancale = p.isPasta ? 12 * (Number(p.liter) || 0) : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
+    const baseLiters = litersPerBancale * target;
+    const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
+    return (state.warehouses || []).map(w => {
+      const ings = recipe.filter(r => r.warehouseId === w.id);
+      if (!ings.length) return w;
+      return { ...w, items: (w.items || []).map(itm => {
+        const ing = ings.find(r => r.itemId === itm.id);
+        if (!ing) return itm;
+        const gross = (Number(ing.percent) / 100) * baseLiters * wasteMul;
+        const amount = (w.unit === 'ml' || w.unit === 'g') ? gross * 1000 : gross;
+        return { ...itm, stock: Math.max(0, (itm.stock || 0) + sign * amount) };
+      }) };
+    });
+  };
+
   /* ---- Stock deduction on item confirm ---- */
   const handleConfirm = ({ pi, ii, action, pendingRows }) => {
     const it = allProgs[pi].items[ii];
@@ -115,7 +138,9 @@ export default function Program() {
       // Pasta carton production: store finished cartons (1 bancale = 12 cartons)
       const pf = { ...(state.pastaFinished || {}) };
       pf[p.id] = Math.max(0, (pf[p.id] || 0) + (-sign) * target * 12);
-      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, pastaFinished: pf });
+      // Composition: deduct each material from its prep warehouse (same as Linea)
+      const updatedWarehouses = consumeRecipe(p, target, sign);
+      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, pastaFinished: pf, warehouses: updatedWarehouses });
     } else {
       const prog = allProgs[pi];
       const isAmazon = prog && prog.progType === 'amazon';
@@ -164,24 +189,8 @@ export default function Program() {
         const lf = { ...(state.lineaFinished || {}) };
         lf[p.id] = Math.max(0, (lf[p.id] || 0) + (-sign) * target);
 
-        // Liquid composition: deduct each ingredient from its prep warehouse.
-        // Liquid per bancale = jerricansPer × liter; per ingredient = percent% × total × (1 + scarto%).
-        const liqRecipe = (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0);
-        let updatedWarehouses = state.warehouses || [];
-        if (liqRecipe.length) {
-          const litersPerBancale = (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
-          const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
-          updatedWarehouses = updatedWarehouses.map(w => {
-            const ings = liqRecipe.filter(r => r.warehouseId === w.id);
-            if (!ings.length) return w;
-            return { ...w, items: (w.items || []).map(itm => {
-              const ing = ings.find(r => r.itemId === itm.id);
-              if (!ing) return itm;
-              const need = (Number(ing.percent) / 100) * litersPerBancale * target * wasteMul;
-              return { ...itm, stock: Math.max(0, (itm.stock || 0) + sign * need) };
-            }) };
-          });
-        }
+        // Composition: deduct each material from its prep warehouse
+        const updatedWarehouses = consumeRecipe(p, target, sign);
         update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, lineaFinished: lf, warehouses: updatedWarehouses });
       }
     }
