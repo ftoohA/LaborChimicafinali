@@ -130,6 +130,7 @@ export default function Products() {
           pastaBoxes={state.pastaBoxes}
           pastaLids={state.pastaLids}
           cartonTypes={state.cartonTypes}
+          warehouses={state.warehouses}
           onClose={() => setEditing(null)}
           onSave={(prod) => {
             if (editing) {
@@ -147,7 +148,11 @@ export default function Products() {
   );
 }
 
-function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave, pastaLiquids, pastaBoxes = [], pastaLids = [], cartonTypes = [] }) {
+function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave, pastaLiquids, pastaBoxes = [], pastaLids = [], cartonTypes = [], warehouses = [] }) {
+  // Liquid ingredient options from prep / liquid warehouses
+  const prepOptions = warehouses
+    .filter(w => w.usedInPrep || w.unit === 'liter')
+    .flatMap(w => (w.items || []).map(it => ({ warehouseId: w.id, itemId: it.id, name: it.name, whName: w.name })));
   const [form, setForm] = useState({
     company: existing?.company || '',
     type: existing?.type || '',
@@ -168,6 +173,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
     pastaLiquidId: existing?.pastaLiquidId || '',
     pastaBoxId: existing?.pastaBoxId || '',
     pastaLidId: existing?.pastaLidId || '',
+    liquidWaste: existing?.liquidWaste ?? 2,
     initFront: 0,
     initBack: 0,
     initCaps: 0,
@@ -178,20 +184,29 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const [recipe, setRecipe] = useState(
-    (existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name, ratio: r.ratio }))
+    (existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name || '', percent: r.percent ?? '', warehouseId: r.warehouseId || '', itemId: r.itemId || '' }))
   );
 
   const addRecipeIngredient = () => {
-    setRecipe(r => [...r, { id: uid(), name: '', ratio: '' }]);
+    setRecipe(r => [...r, { id: uid(), name: '', percent: '', warehouseId: '', itemId: '' }]);
   };
 
   const updateRecipeIngredient = (id, field, value) => {
     setRecipe(r => r.map(x => x.id === id ? { ...x, [field]: value } : x));
   };
 
+  const pickRecipeSource = (id, key) => {
+    const opt = prepOptions.find(o => `${o.warehouseId}:${o.itemId}` === key);
+    setRecipe(r => r.map(x => x.id !== id ? x : opt
+      ? { ...x, warehouseId: opt.warehouseId, itemId: opt.itemId, name: opt.name }
+      : { ...x, warehouseId: '', itemId: '' }));
+  };
+
   const removeRecipeIngredient = (id) => {
     setRecipe(r => r.filter(x => x.id !== id));
   };
+
+  const totalPercent = recipe.reduce((s, r) => s + (Number(r.percent) || 0), 0);
 
   const handleImageFile = (file) => {
     if (!file) return;
@@ -226,11 +241,13 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
       return;
     }
     const cleanedRecipe = recipe
-      .filter(r => r.name.trim() && Number(r.ratio) > 0)
+      .filter(r => r.name.trim() && Number(r.percent) > 0)
       .map(r => ({
         id: r.id,
         name: r.name.trim(),
-        ratio: Number(r.ratio) || 0
+        percent: Number(r.percent) || 0,
+        warehouseId: r.warehouseId || '',
+        itemId: r.itemId || '',
       }));
 
     onSave({
@@ -251,6 +268,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
       cartonId: (!form.isPasta && form.hasCarton) ? (form.cartonId || null) : null,
       name: `${form.company.trim()} - ${form.type.trim()}`,
       recipe: form.isPasta ? [] : cleanedRecipe,
+      liquidWaste: form.isPasta ? 0 : (Number(form.liquidWaste) || 0),
       isPasta: !!form.isPasta,
       hasSponge: !!form.isPasta && !!form.hasSponge,
       pastaLiquidId: form.isPasta ? form.pastaLiquidId : null,
@@ -473,52 +491,70 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
 
       {!form.isPasta && (
         <>
-          {/* Recipe (طريقة التحضير) */}
+          {/* Liquid composition from prep warehouses (% per ingredient) */}
           <hr className="sep" />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <p className="smallmuted" style={{ margin: 0, fontWeight: 700 }}>🧪 Preparazione (ingredienti per 1 litro)</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <p className="smallmuted" style={{ margin: 0, fontWeight: 700 }}>🧪 Composizione liquida (% per ingrediente)</p>
             <button type="button" className="primary" style={{ padding: '2px 8px', fontSize: 11 }} onClick={addRecipeIngredient}>
-              + Aggiungi ingrediente
+              + Aggiungi liquido
             </button>
           </div>
+          <p className="smallmuted" style={{ fontSize: 11, margin: '0 0 8px' }}>
+            Scegli i liquidi dai magazzini e indica la percentuale di ciascuno (totale 100%).
+            Alla produzione si calcola: {form.jerricansPer || 0} taniche × {form.liter || 0} L = {(Number(form.jerricansPer) || 0) * (Number(form.liter) || 0)} L per bancale, e si scala dal magazzino + scarto.
+          </p>
 
           {recipe.length === 0 ? (
             <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic', margin: '8px 0' }}>
-              Nessun ingrediente aggiunto.
+              Nessun liquido aggiunto.
             </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {recipe.map((ing, idx) => (
-                <div key={ing.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
+              {recipe.map((ing) => {
+                const curKey = ing.warehouseId && ing.itemId ? `${ing.warehouseId}:${ing.itemId}` : '';
+                return (
+                <div key={ing.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {prepOptions.length > 0 && (
+                    <select className="input-sm" style={{ flex: 1, minWidth: 120 }} value={curKey} onChange={e => pickRecipeSource(ing.id, e.target.value)}>
+                      <option value="">✏️ Manuale</option>
+                      {prepOptions.map(o => <option key={`${o.warehouseId}:${o.itemId}`} value={`${o.warehouseId}:${o.itemId}`}>{o.name} · {o.whName}</option>)}
+                    </select>
+                  )}
                   <input
                     className="input-sm"
-                    style={{ flex: 2 }}
-                    placeholder={T.dir === 'rtl' ? 'اسم المكون (مثال: ماء، حمض...)' : 'Nome ingrediente (es: acqua, acido...)'}
+                    style={{ flex: 2, minWidth: 110 }}
+                    placeholder="Nome ingrediente"
                     value={ing.name}
-                    onChange={e => updateRecipeIngredient(ing.id || idx, 'name', e.target.value)}
+                    onChange={e => updateRecipeIngredient(ing.id, 'name', e.target.value)}
+                    disabled={!!curKey}
                   />
                   <input
                     className="input-sm"
                     type="number"
                     step="any"
-                    style={{ flex: 1, minWidth: 80 }}
-                    placeholder={T.dir === 'rtl' ? 'النسبة' : 'Proporzione'}
-                    value={ing.ratio}
-                    onChange={e => updateRecipeIngredient(ing.id || idx, 'ratio', e.target.value)}
+                    style={{ width: 80 }}
+                    placeholder="%"
+                    value={ing.percent}
+                    onChange={e => updateRecipeIngredient(ing.id, 'percent', e.target.value)}
                   />
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--muted)', width: 45 }}>L/L</span>
-                  <button
-                    type="button"
-                    className="ghost"
-                    style={{ color: 'var(--red)', padding: '4px 8px' }}
-                    onClick={() => removeRecipeIngredient(ing.id || idx)}
-                  >
-                    ✕
-                  </button>
+                  <span className="mono" style={{ fontSize: 12, color: 'var(--muted)', width: 16 }}>%</span>
+                  <button type="button" className="ghost" style={{ color: 'var(--red)', padding: '4px 8px' }} onClick={() => removeRecipeIngredient(ing.id)}>✕</button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
+
+          {recipe.length > 0 && (
+            <div style={{ textAlign: 'end', fontSize: 12, marginBottom: 10, fontWeight: 700, color: totalPercent === 100 ? 'var(--green)' : 'var(--orange)' }}>
+              Totale: {totalPercent}% {totalPercent === 100 ? '✓' : `(${totalPercent > 100 ? '−' : '+'}${Math.abs(100 - totalPercent)}% per 100%)`}
+            </div>
+          )}
+
+          <div className="field" style={{ maxWidth: 220 }}>
+            <label>♻️ Scarto liquido %</label>
+            <input type="number" step="any" value={form.liquidWaste} onChange={e => set('liquidWaste', e.target.value)} />
+          </div>
         </>
       )}
 
@@ -536,18 +572,6 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
               <label>{T.tickets_back} ({T.pieces})</label>
               <input type="number" value={form.initBack} onChange={e => set('initBack', e.target.value)} />
             </div>
-            {!form.coverId && (
-              <div className="field">
-                <label>{T.caps_per} — {T.stock_count} ({T.pieces})</label>
-                <input type="number" value={form.initCaps} onChange={e => set('initCaps', e.target.value)} />
-              </div>
-            )}
-            {!form.basketId && (
-              <div className="field">
-                <label>{T.jerricans_per} — {T.stock_count} ({T.pieces})</label>
-                <input type="number" value={form.initJerricans} onChange={e => set('initJerricans', e.target.value)} />
-              </div>
-            )}
           </div>
         </>
       )}

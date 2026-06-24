@@ -163,7 +163,26 @@ export default function Program() {
         // Linea production: add produced bancale to Linea finished stock
         const lf = { ...(state.lineaFinished || {}) };
         lf[p.id] = Math.max(0, (lf[p.id] || 0) + (-sign) * target);
-        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, lineaFinished: lf });
+
+        // Liquid composition: deduct each ingredient from its prep warehouse.
+        // Liquid per bancale = jerricansPer × liter; per ingredient = percent% × total × (1 + scarto%).
+        const liqRecipe = (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0);
+        let updatedWarehouses = state.warehouses || [];
+        if (liqRecipe.length) {
+          const litersPerBancale = (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
+          const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
+          updatedWarehouses = updatedWarehouses.map(w => {
+            const ings = liqRecipe.filter(r => r.warehouseId === w.id);
+            if (!ings.length) return w;
+            return { ...w, items: (w.items || []).map(itm => {
+              const ing = ings.find(r => r.itemId === itm.id);
+              if (!ing) return itm;
+              const need = (Number(ing.percent) / 100) * litersPerBancale * target * wasteMul;
+              return { ...itm, stock: Math.max(0, (itm.stock || 0) + sign * need) };
+            }) };
+          });
+        }
+        update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, lineaFinished: lf, warehouses: updatedWarehouses });
       }
     }
     addLog({ type: action === 'done' ? 'produce' : 'undo', product: p.code, target, date, by: state.role });
