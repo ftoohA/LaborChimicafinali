@@ -28,6 +28,7 @@ export default function WorkerProfile() {
   const [pinInput, setPinInput] = useState('');
   const [pinErr, setPinErr] = useState('');
   const [changingPin, setChangingPin] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState(null);
 
   const workers = state.workers || [];
   const worker = workerId ? workers.find(w => w.id === workerId) : null;
@@ -52,6 +53,9 @@ export default function WorkerProfile() {
 
   // Total all-time hours
   const totalHrs = records.reduce((s, r) => s + (roundedHours(r.clockIn, r.clockOut) || 0), 0);
+
+  // Current-month rating (set by supervisor), falls back to legacy single grade
+  const monthRating = worker?.monthlyRatings?.[thisMonth] ?? worker?.grade ?? 0;
 
   // --- PIN change ---
   const handlePinChange = (newPin) => {
@@ -101,15 +105,16 @@ export default function WorkerProfile() {
             : <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>👤</div>}
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 22, fontWeight: 800 }}>{worker?.name}</div>
-            {worker?.details && <div className="smallmuted" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{worker.details}</div>}
-            {worker?.grade && (
-              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="smallmuted" style={{ fontSize: 12 }}>{tr(L, 'التقييم:', 'Valutazione:', 'Rating:')}</span>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span key={i} style={{ fontSize: 18, color: i < (worker.grade || 0) ? 'var(--yellow)' : 'var(--line)' }}>★</span>
-                ))}
-              </div>
+            {worker?.codiceFiscale && (
+              <div className="smallmuted mono" style={{ marginTop: 2, fontSize: 12 }}>🆔 {worker.codiceFiscale}</div>
             )}
+            {worker?.details && <div className="smallmuted" style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{worker.details}</div>}
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="smallmuted" style={{ fontSize: 12 }}>{tr(L, `تقييم ${thisMonth}:`, `Voto ${thisMonth}:`, `Rating ${thisMonth}:`)}</span>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} style={{ fontSize: 18, color: i < monthRating ? 'var(--yellow)' : 'var(--line)' }}>★</span>
+              ))}
+            </div>
           </div>
           <div className="row" style={{ gap: 8, flexShrink: 0 }}>
             <button onClick={() => setChangingPin(true)}>🔒 {tr(L, 'تغيير PIN', 'Cambia PIN', 'Change PIN')}</button>
@@ -133,6 +138,29 @@ export default function WorkerProfile() {
           <div className="lbl">{tr(L, 'أيام هذا الشهر', 'Giorni questo mese', 'Days this month')}</div>
         </div>
       </div>
+
+      {/* ID card + documents */}
+      {(worker?.idCardPhoto || (worker?.documents || []).length > 0) && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <h3 style={{ margin: '0 0 12px' }}>📎 {tr(L, 'المستندات والصور', 'Documenti e foto', 'Documents & Photos')}</h3>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {worker?.idCardPhoto && (
+              <div style={{ textAlign: 'center' }}>
+                <img src={worker.idCardPhoto} alt="" onClick={() => setViewingDoc(worker.idCardPhoto)}
+                  style={{ width: 130, height: 86, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer' }} />
+                <div className="smallmuted" style={{ fontSize: 11, marginTop: 4 }}>🪪 {tr(L, 'البطاقة', "Carta d'identità", 'ID card')}</div>
+              </div>
+            )}
+            {(worker?.documents || []).map(doc => (
+              <div key={doc.id} style={{ textAlign: 'center' }}>
+                <img src={doc.image} alt={doc.name} onClick={() => setViewingDoc(doc.image)}
+                  style={{ width: 100, height: 86, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer' }} />
+                {doc.name && <div className="smallmuted" style={{ fontSize: 11, marginTop: 4, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Attendance history */}
       <div className="card">
@@ -179,6 +207,14 @@ export default function WorkerProfile() {
         <ChangePinModal L={L} T={T}
           onClose={() => setChangingPin(false)}
           onSave={handlePinChange} />
+      )}
+
+      {/* Document lightbox */}
+      {viewingDoc && (
+        <div onClick={() => setViewingDoc(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20, cursor: 'zoom-out' }}>
+          <img src={viewingDoc} alt="" style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: 8 }} />
+        </div>
       )}
     </>
   );

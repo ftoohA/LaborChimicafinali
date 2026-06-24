@@ -13,12 +13,25 @@ export default function Admin() {
   const [settings, setSettings] = useState({ ...state.settings });
   const [addingCompany, setAddingCompany] = useState(false);
   const [addingWorker, setAddingWorker] = useState(false);
+  const [editingWorker, setEditingWorker] = useState(null);   // full edit modal
   const [editingWorkerPin, setEditingWorkerPin] = useState(null); // worker object
 
   const thisMonth = new Date().toISOString().slice(0, 7);
   const getMonthlyHours = (wid) => (state.attendance || [])
     .filter(r => r.workerId === wid && r.date && r.date.startsWith(thisMonth))
     .reduce((sum, r) => sum + (roundedHours(r.clockIn, r.clockOut) || 0), 0);
+
+  const workers = state.workers || [];
+  const getRating = (w) => (w.monthlyRatings?.[thisMonth] ?? 0);
+  const setRating = (wid, stars) => {
+    update({ workers: workers.map(w => w.id !== wid ? w : { ...w, monthlyRatings: { ...(w.monthlyRatings || {}), [thisMonth]: stars } }) });
+    addLog({ type: 'worker_rated', workerId: wid, month: thisMonth, stars, by: state.role });
+  };
+  // Employee of the month = highest current-month rating
+  const employeeOfMonth = workers.reduce((best, w) => {
+    const r = getRating(w);
+    return r > 0 && (!best || r > getRating(best)) ? w : best;
+  }, null);
 
   const setSetting = (k, v) => setSettings(s => ({ ...s, [k]: v }));
 
@@ -130,6 +143,25 @@ export default function Admin() {
         )}
       </div>
 
+      {/* Employee of the month */}
+      {employeeOfMonth && (
+        <div className="card" style={{ borderColor: 'var(--yellow)', background: 'rgba(242,183,5,0.05)' }}>
+          <div className="row" style={{ gap: 14, alignItems: 'center' }}>
+            <div style={{ fontSize: 36 }}>🏆</div>
+            {employeeOfMonth.photo
+              ? <img src={employeeOfMonth.photo} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
+              : <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>👤</div>}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {state.lang === 'ar' ? `أفضل موظف لشهر ${thisMonth}` : state.lang === 'it' ? `Miglior operaio di ${thisMonth}` : `Employee of the month ${thisMonth}`}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>{employeeOfMonth.name}</div>
+              <div>{Array.from({ length: 5 }).map((_, i) => <span key={i} style={{ fontSize: 16, color: i < getRating(employeeOfMonth) ? 'var(--yellow)' : 'var(--line)' }}>★</span>)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Workers */}
       <div className="card">
         <div className="flex-between">
@@ -147,12 +179,14 @@ export default function Admin() {
                 <th>{state.lang === 'ar' ? 'اسم العامل' : state.lang === 'it' ? 'Nome operaio' : 'Worker Name'}</th>
                 <th>🔒 PIN</th>
                 <th>⏱ {state.lang === 'ar' ? 'ساعات الشهر' : state.lang === 'it' ? 'Ore mensili' : 'Monthly hrs'}</th>
+                <th>⭐ {state.lang === 'ar' ? 'تقييم الشهر' : state.lang === 'it' ? 'Voto mese' : 'Month rating'}</th>
                 <th>{T.actions}</th>
               </tr>
             </thead>
             <tbody>
               {state.workers.map(w => {
                 const hrs = getMonthlyHours(w.id);
+                const rating = getRating(w);
                 return (
                   <tr key={w.id}>
                     <td style={{ fontWeight: 600 }}>{w.name}</td>
@@ -161,9 +195,20 @@ export default function Admin() {
                       {hrs.toFixed(1)}h
                     </td>
                     <td>
+                      <div style={{ display: 'flex', gap: 1 }}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span key={i} title={`${i + 1}`} style={{ cursor: 'pointer', fontSize: 18, color: i < rating ? 'var(--yellow)' : 'var(--line)' }}
+                            onClick={() => setRating(w.id, i + 1 === rating ? 0 : i + 1)}>★</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
                       <div className="row" style={{ gap: 6 }}>
+                        <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setEditingWorker(w)}>
+                          ✏️ {state.lang === 'ar' ? 'تعديل' : state.lang === 'it' ? 'Modifica' : 'Edit'}
+                        </button>
                         <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setEditingWorkerPin(w)}>
-                          🔒 {state.lang === 'ar' ? 'تغيير PIN' : state.lang === 'it' ? 'Cambia PIN' : 'Change PIN'}
+                          🔒 PIN
                         </button>
                         <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deleteWorker(w.id)}>✕</button>
                       </div>
@@ -184,6 +229,10 @@ export default function Admin() {
       {addingWorker && (
         <WorkerModal T={T} lang={state.lang} onClose={() => setAddingWorker(false)}
           onSave={worker => { update({ workers: [...(state.workers || []), worker] }); toast(T.success_added); setAddingWorker(false); }} />
+      )}
+      {editingWorker && (
+        <WorkerModal T={T} lang={state.lang} worker={editingWorker} onClose={() => setEditingWorker(null)}
+          onSave={worker => { update({ workers: workers.map(w => w.id === worker.id ? worker : w) }); toast(T.success_added); setEditingWorker(null); }} />
       )}
       {editingWorkerPin && (
         <EditPinModal lang={state.lang} T={T} worker={editingWorkerPin} onClose={() => setEditingWorkerPin(null)}
@@ -278,63 +327,115 @@ function CompanyModal({ T, onClose, onSave }) {
   );
 }
 
-/* ---- Worker Modal ---- */
-function WorkerModal({ T, lang, onClose, onSave }) {
+/* ---- Worker Modal (add + edit) ---- */
+function WorkerModal({ T, lang, worker, onClose, onSave }) {
   const toast = useToast();
-  const [name, setName] = useState('');
-  const [pin, setPin] = useState('');
-  const [photo, setPhoto] = useState('');
-  const [details, setDetails] = useState('');
-  const fileRef = useRef();
+  const tr = (ar, it, en) => (lang === 'ar' ? ar : lang === 'it' ? it : en);
+  const isEdit = !!worker;
+  const [name, setName] = useState(worker?.name || '');
+  const [pin, setPin] = useState(worker?.pin || '');
+  const [photo, setPhoto] = useState(worker?.photo || '');
+  const [details, setDetails] = useState(worker?.details || '');
+  const [codiceFiscale, setCodiceFiscale] = useState(worker?.codiceFiscale || '');
+  const [idCardPhoto, setIdCardPhoto] = useState(worker?.idCardPhoto || '');
+  const [documents, setDocuments] = useState(worker?.documents || []);
+  const photoRef = useRef();
+  const idRef = useRef();
+  const docRef = useRef();
 
-  const handlePhoto = (file) => {
+  // shared image compressor (max edge px, jpeg quality)
+  const compress = (file, max, cb) => {
     if (!file) return;
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX = 300;
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
       const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      setPhoto(canvas.toDataURL('image/jpeg', 0.75));
+      cb(canvas.toDataURL('image/jpeg', 0.72));
       URL.revokeObjectURL(url);
     };
     img.src = url;
   };
 
+  const addDoc = (file) => compress(file, 1000, (img) => setDocuments(d => [...d, { id: uid(), name: file.name?.slice(0, 40) || '', image: img }]));
+  const delDoc = (id) => setDocuments(d => d.filter(x => x.id !== id));
+
   const handleSave = () => {
-    if (!name.trim()) {
-      toast(lang === 'ar' ? 'الاسم مطلوب' : lang === 'it' ? 'Il nome è obbligatorio' : 'Name is required', true);
-      return;
-    }
-    onSave({ id: uid(), name: name.trim(), pin: pin.trim(), photo, details: details.trim() });
+    if (!name.trim()) { toast(tr('الاسم مطلوب', 'Il nome è obbligatorio', 'Name is required'), true); return; }
+    onSave({
+      ...(worker || {}),
+      id: worker?.id || uid(),
+      name: name.trim(), pin: pin.trim(), photo, details: details.trim(),
+      codiceFiscale: codiceFiscale.trim(), idCardPhoto, documents,
+    });
   };
 
   return (
-    <Modal onClose={onClose} maxWidth={380}>
-      <h3>{lang === 'ar' ? 'إضافة عامل جديد' : lang === 'it' ? 'Aggiungi nuovo operaio' : 'Add New Worker'}</h3>
-      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e.target.files && e.target.files[0])} />
+    <Modal onClose={onClose} maxWidth={520}>
+      <h3>{isEdit ? tr('تعديل العامل', 'Modifica operaio', 'Edit Worker') : tr('إضافة عامل جديد', 'Aggiungi nuovo operaio', 'Add New Worker')}</h3>
+      <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => compress(e.target.files?.[0], 300, setPhoto)} />
+      <input ref={idRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => compress(e.target.files?.[0], 1000, setIdCardPhoto)} />
+      <input ref={docRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { addDoc(e.target.files?.[0]); e.target.value = ''; }} />
+
       <div className="row" style={{ gap: 12, marginBottom: 12, alignItems: 'center' }}>
         {photo
           ? <img src={photo} alt="" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--line)' }} />
           : <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>👤</div>}
-        <button onClick={() => fileRef.current && fileRef.current.click()}>📷 {lang === 'ar' ? 'صورة العامل' : lang === 'it' ? 'Foto operaio' : 'Worker Photo'}</button>
+        <button onClick={() => photoRef.current?.click()}>📷 {tr('صورة العامل', 'Foto operaio', 'Worker Photo')}</button>
       </div>
+
+      <div className="grid cols-2" style={{ marginBottom: 12 }}>
+        <div className="field" style={{ margin: 0 }}>
+          <label>{tr('اسم العامل', 'Nome operaio', 'Worker Name')}</label>
+          <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={tr('أحمد محمد...', 'Mario Rossi...', 'Mario Rossi...')} />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label>🔒 {tr('الرقم السري', 'Codice segreto', 'Secret PIN')}</label>
+          <input value={pin} onChange={e => setPin(e.target.value)} placeholder={tr('مثال: 1234', 'es: 1234', 'e.g. 1234')} />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label>🆔 {tr('الكود الضريبي / رقم الهوية', 'Codice fiscale', 'Tax code / ID no.')}</label>
+          <input value={codiceFiscale} onChange={e => setCodiceFiscale(e.target.value)} placeholder="RSSMRA80A01H501U" />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label>🪪 {tr('صورة البطاقة', "Foto carta d'identità", 'ID card photo')}</label>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            {idCardPhoto && <img src={idCardPhoto} alt="" style={{ width: 46, height: 30, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--line)' }} />}
+            <button type="button" style={{ fontSize: 12 }} onClick={() => idRef.current?.click()}>📷 {tr('رفع', 'Carica', 'Upload')}</button>
+            {idCardPhoto && <button type="button" className="danger ghost" style={{ fontSize: 12 }} onClick={() => setIdCardPhoto('')}>✕</button>}
+          </div>
+        </div>
+      </div>
+
       <div className="field" style={{ marginBottom: 12 }}>
-        <label>{lang === 'ar' ? 'اسم العامل' : lang === 'it' ? 'Nome operaio' : 'Worker Name'}</label>
-        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={lang === 'ar' ? 'أحمد محمد...' : 'Mario Rossi...'} />
+        <label>{tr('تفاصيل (اختياري)', 'Dettagli (opzionale)', 'Details (optional)')}</label>
+        <textarea value={details} onChange={e => setDetails(e.target.value)} style={{ minHeight: 50 }} placeholder={tr('تليفون، عنوان، ملاحظات...', 'Telefono, indirizzo, note...', 'Phone, address, notes...')} />
       </div>
-      <div className="field" style={{ marginBottom: 12 }}>
-        <label>🔒 {lang === 'ar' ? 'الرقم السري (لتسجيل الوقت)' : lang === 'it' ? 'Codice segreto (per timbratura)' : 'Secret PIN (for time tracking)'}</label>
-        <input value={pin} onChange={e => setPin(e.target.value)} placeholder={lang === 'ar' ? 'مثال: 1234' : 'es: 1234'} />
+
+      {/* Document images */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <label style={{ fontWeight: 700 }}>📎 {tr('مستندات وصور خاصة بالعامل', 'Documenti / foto operaio', 'Worker documents / photos')}</label>
+        <button type="button" className="primary" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => docRef.current?.click()}>
+          + {tr('صورة', 'Immagine', 'Image')}
+        </button>
       </div>
-      <div className="field" style={{ marginBottom: 16 }}>
-        <label>{lang === 'ar' ? 'تفاصيل (اختياري)' : lang === 'it' ? 'Dettagli (opzionale)' : 'Details (optional)'}</label>
-        <textarea value={details} onChange={e => setDetails(e.target.value)} style={{ minHeight: 50 }} placeholder={lang === 'ar' ? 'تليفون، عنوان، ملاحظات...' : lang === 'it' ? 'Telefono, indirizzo, note...' : 'Phone, address, notes...'} />
-      </div>
-      <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+      {documents.length === 0 ? (
+        <div className="empty" style={{ padding: 10, fontSize: 12 }}>{tr('لا توجد مستندات', 'Nessun documento', 'No documents')}</div>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          {documents.map(doc => (
+            <div key={doc.id} style={{ position: 'relative', width: 80 }}>
+              <img src={doc.image} alt={doc.name} title={doc.name} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)' }} />
+              <button type="button" className="danger" style={{ position: 'absolute', top: -6, insetInlineEnd: -6, borderRadius: '50%', width: 22, height: 22, padding: 0, fontSize: 12 }} onClick={() => delDoc(doc.id)}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={handleSave}>{T.save}</button>
       </div>
