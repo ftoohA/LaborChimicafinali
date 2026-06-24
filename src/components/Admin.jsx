@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { I18N, ADMIN_PASS, WORKER_PASS } from '../i18n';
 import { uid, roundedHours } from '../helpers';
 import Modal from './Modal';
@@ -9,6 +10,7 @@ export default function Admin() {
   const { state, update, addLog } = useStore();
   const T = I18N[state.lang];
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [settings, setSettings] = useState({ ...state.settings });
   const [addingCompany, setAddingCompany] = useState(false);
@@ -41,15 +43,15 @@ export default function Admin() {
     toast(T.success_added);
   };
 
-  const deleteCompany = (id) => {
-    if (!confirm(T.confirm_delete)) return;
-    update({ companies: state.companies.filter(c => c.id !== id) });
+  const deleteCompany = async (c) => {
+    if (!(await confirm({ danger: true, title: T.confirm_delete, message: c.name }))) return;
+    update({ companies: state.companies.filter(x => x.id !== c.id) });
     toast(T.deleted);
   };
 
-  const deleteWorker = (id) => {
-    if (!confirm(T.confirm_delete)) return;
-    update({ workers: (state.workers || []).filter(w => w.id !== id) });
+  const deleteWorker = async (w) => {
+    if (!(await confirm({ danger: true, title: T.confirm_delete, message: w.name }))) return;
+    update({ workers: (state.workers || []).filter(x => x.id !== w.id) });
     toast(T.deleted);
   };
 
@@ -136,7 +138,7 @@ export default function Admin() {
             {state.companies.map(c => (
               <div key={c.id} className="card" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 600 }}>{c.name}</span>
-                <button className="danger ghost" style={{ padding: '4px 8px', marginInlineStart: 8 }} onClick={() => deleteCompany(c.id)}>✕</button>
+                <button className="danger ghost" style={{ padding: '4px 8px', marginInlineStart: 8 }} onClick={() => deleteCompany(c)}>✕</button>
               </div>
             ))}
           </div>
@@ -210,7 +212,7 @@ export default function Admin() {
                         <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setEditingWorkerPin(w)}>
                           🔒 PIN
                         </button>
-                        <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deleteWorker(w.id)}>✕</button>
+                        <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deleteWorker(w)}>✕</button>
                       </div>
                     </td>
                   </tr>

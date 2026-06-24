@@ -5,10 +5,12 @@ import { I18N, PROG_TYPES } from '../i18n';
 import { todayStr, updateProgramItem, uid } from '../helpers';
 import Modal from './Modal';
 import ProgBadge from './ProgBadge';
+import { useConfirm } from './ConfirmDialog';
 
 export default function Program() {
   const { state, update, addLog } = useStore();
   const T = I18N[state.lang];
+  const confirm = useConfirm();
   const toast = useToast();
 
   const date = state.progDate || todayStr();
@@ -32,8 +34,9 @@ export default function Program() {
     toast(T.success_added);
   };
 
-  const deleteProgram = (realPi) => {
-    if (!confirm(T.confirm_delete)) return;
+  const deleteProgram = async (realPi) => {
+    const pr = allProgs[realPi];
+    if (!(await confirm({ danger: true, title: T.confirm_delete, message: pr?.label || T.today_program }))) return;
     const newList = allProgs.filter((_, i) => i !== realPi);
     update({ programs: { ...state.programs, [date]: newList } });
     addLog({ type: 'delete_program', date, by: state.role });

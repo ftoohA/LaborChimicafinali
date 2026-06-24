@@ -4,12 +4,15 @@ import './index.css'
 import App from './App.jsx'
 import { StoreProvider } from './store.jsx'
 import { ToastProvider } from './components/Toast.jsx'
+import { ConfirmProvider } from './components/ConfirmDialog.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <StoreProvider>
       <ToastProvider>
-        <App />
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
       </ToastProvider>
     </StoreProvider>
   </StrictMode>,

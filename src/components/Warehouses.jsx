@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { I18N } from '../i18n';
 import { uid } from '../helpers';
 import Modal from './Modal';
@@ -13,7 +14,10 @@ export default function Warehouses() {
   const T = I18N[state.lang];
   const L = state.lang;
   const toast = useToast();
+  const confirm = useConfirm();
   const isAdmin = state.role === 'admin';
+
+  const askDelete = (name) => confirm({ danger: true, title: T.confirm_delete, message: name || '' });
 
   // Custom warehouse state
   const [creating, setCreating] = useState(false);
@@ -42,9 +46,9 @@ export default function Warehouses() {
     toast(T.success_added);
     setCreating(false);
   };
-  const deleteWarehouse = (id) => {
-    if (!confirm(T.confirm_delete)) return;
-    saveWh(warehouses.filter(w => w.id !== id));
+  const deleteWarehouse = async (wh) => {
+    if (!(await askDelete(wh.name))) return;
+    saveWh(warehouses.filter(w => w.id !== wh.id));
     toast(T.deleted);
   };
   const addItem = (whId, item) => {
@@ -53,9 +57,9 @@ export default function Warehouses() {
     toast(T.success_added);
     setAddingItem(null);
   };
-  const deleteItem = (whId, itemId) => {
-    if (!confirm(T.confirm_delete)) return;
-    saveWh(warehouses.map(w => w.id !== whId ? w : { ...w, items: (w.items || []).filter(i => i.id !== itemId) }));
+  const deleteItem = async (whId, item) => {
+    if (!(await askDelete(item.name))) return;
+    saveWh(warehouses.map(w => w.id !== whId ? w : { ...w, items: (w.items || []).filter(i => i.id !== item.id) }));
     toast(T.deleted);
   };
   const restockItem = (whId, itemId, qty, reason) => {
@@ -68,12 +72,12 @@ export default function Warehouses() {
   };
 
   // ---- built-in ops ----
-  const deleteCover = (id) => { if (!confirm(T.confirm_delete)) return; update({ covers: state.covers.filter(c => c.id !== id) }); toast(T.deleted); };
-  const deleteBasket = (id) => { if (!confirm(T.confirm_delete)) return; update({ baskets: state.baskets.filter(b => b.id !== id) }); toast(T.deleted); };
-  const deleteCarton = (id) => { if (!confirm(T.confirm_delete)) return; update({ cartonTypes: (state.cartonTypes || []).filter(c => c.id !== id) }); toast(T.deleted); };
-  const deletePastaBox = (id) => { if (!confirm(T.confirm_delete)) return; update({ pastaBoxes: (state.pastaBoxes || []).filter(p => p.id !== id) }); toast(T.deleted); };
-  const deletePastaLid = (id) => { if (!confirm(T.confirm_delete)) return; update({ pastaLids: (state.pastaLids || []).filter(p => p.id !== id) }); toast(T.deleted); };
-  const deletePastaLiquid = (id) => { if (!confirm(T.confirm_delete)) return; update({ pastaLiquids: (state.pastaLiquids || []).filter(p => p.id !== id) }); toast(T.deleted); };
+  const deleteCover = async (it) => { if (!(await askDelete(it.name))) return; update({ covers: state.covers.filter(c => c.id !== it.id) }); toast(T.deleted); };
+  const deleteBasket = async (it) => { if (!(await askDelete(it.name))) return; update({ baskets: state.baskets.filter(b => b.id !== it.id) }); toast(T.deleted); };
+  const deleteCarton = async (it) => { if (!(await askDelete(it.name))) return; update({ cartonTypes: (state.cartonTypes || []).filter(c => c.id !== it.id) }); toast(T.deleted); };
+  const deletePastaBox = async (it) => { if (!(await askDelete(it.name))) return; update({ pastaBoxes: (state.pastaBoxes || []).filter(p => p.id !== it.id) }); toast(T.deleted); };
+  const deletePastaLid = async (it) => { if (!(await askDelete(it.name))) return; update({ pastaLids: (state.pastaLids || []).filter(p => p.id !== it.id) }); toast(T.deleted); };
+  const deletePastaLiquid = async (it) => { if (!(await askDelete(it.name))) return; update({ pastaLiquids: (state.pastaLiquids || []).filter(p => p.id !== it.id) }); toast(T.deleted); };
 
   const restockBuiltin = (key, itemId, qty, reason) => {
     const arr = state[key] || [];
@@ -109,31 +113,31 @@ export default function Warehouses() {
       key: 'cartonTypes', icon: '📦', title: tr(L, 'الكراتين', 'Cartoni', 'Cartons'), unit: 'piece',
       addLabel: tr(L, 'إضافة كرتونة', 'Aggiungi cartone', 'Add Carton'), onAdd: () => setAddingCarton(true),
       renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (it.lowStock || 0)} unit="piece"
-        onRestock={() => setRestock({ builtinKey: 'cartonTypes', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteCarton(it.id) : null} />,
+        onRestock={() => setRestock({ builtinKey: 'cartonTypes', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteCarton(it) : null} />,
     },
     {
       key: 'covers', icon: '🎩', title: tr(L, 'الغطاءات', 'Coperchi', 'Covers'), unit: 'piece',
       addLabel: tr(L, 'إضافة غطاء', 'Aggiungi coperchio', 'Add Cover'), onAdd: () => setAddingCover(true),
       renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (state.settings.lowStock || 5)} unit="piece"
-        onRestock={() => setRestock({ builtinKey: 'covers', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteCover(it.id) : null} />,
+        onRestock={() => setRestock({ builtinKey: 'covers', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteCover(it) : null} />,
     },
     {
       key: 'baskets', icon: '🪣', title: tr(L, 'الجراكن', 'Taniche', 'Jerricans'), unit: 'piece',
       addLabel: tr(L, 'إضافة جركن', 'Aggiungi tanica', 'Add Jerrican'), onAdd: () => setAddingBasket(true),
       renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (state.settings.lowStock || 5)} unit="piece"
-        onRestock={() => setRestock({ builtinKey: 'baskets', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteBasket(it.id) : null} />,
+        onRestock={() => setRestock({ builtinKey: 'baskets', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteBasket(it) : null} />,
     },
     {
       key: 'pastaBoxes', icon: '📦', title: tr(L, 'علب الباستا', 'Scatole pasta', 'Pasta Boxes'), unit: 'piece',
       addLabel: tr(L, 'إضافة علبة', 'Aggiungi scatola', 'Add Box'), onAdd: () => setAddingPastaBox(true),
       renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (state.settings.lowStock || 5)} unit="piece"
-        onRestock={() => setRestock({ builtinKey: 'pastaBoxes', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deletePastaBox(it.id) : null} />,
+        onRestock={() => setRestock({ builtinKey: 'pastaBoxes', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deletePastaBox(it) : null} />,
     },
     {
       key: 'pastaLids', icon: '🔴', title: tr(L, 'أغطية الباستا', 'Coperchi pasta', 'Pasta Lids'), unit: 'piece',
       addLabel: tr(L, 'إضافة غطاء', 'Aggiungi coperchio', 'Add Lid'), onAdd: () => setAddingPastaLid(true),
       renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (state.settings.lowStock || 5)} unit="piece"
-        onRestock={() => setRestock({ builtinKey: 'pastaLids', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deletePastaLid(it.id) : null} />,
+        onRestock={() => setRestock({ builtinKey: 'pastaLids', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deletePastaLid(it) : null} />,
     },
     {
       key: 'pastaLiquids', icon: '🧪', title: tr(L, 'سوائل الباستا', 'Liquidi pasta', 'Pasta Liquids'), unit: 'liter',
@@ -150,7 +154,7 @@ export default function Warehouses() {
               <div className="row" style={{ gap: 6 }}>
                 <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setRestock({ builtinKey: 'pastaLiquids', itemId: it.id, name: it.name, unit: 'liter' })}>+ {tr(L, 'تعبئة', 'Rifornisci', 'Restock')}</button>
                 <button className="ghost" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setEditingPastaLiquid(it)}>⚙️</button>
-                <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deletePastaLiquid(it.id)}>✕</button>
+                <button className="danger ghost" style={{ padding: '4px 8px' }} onClick={() => deletePastaLiquid(it)}>✕</button>
               </div>
             </td>
           )}
@@ -181,7 +185,7 @@ export default function Warehouses() {
               {isAdmin && (
                 <div className="row" style={{ gap: 6 }}>
                   <button onClick={() => setAddingItem(wh.id)}>+ {tr(L, 'صنف', 'Articolo', 'Item')}</button>
-                  <button className="danger ghost" style={{ fontSize: 12 }} onClick={() => deleteWarehouse(wh.id)}>🗑️</button>
+                  <button className="danger ghost" style={{ fontSize: 12 }} onClick={() => deleteWarehouse(wh)}>🗑️</button>
                 </div>
               )}
             </div>
@@ -194,7 +198,7 @@ export default function Warehouses() {
                   {wh.items.map(it => (
                     <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={low(it)} unit={wh.unit}
                       onRestock={() => setRestock({ whId: wh.id, itemId: it.id, name: it.name, unit: wh.unit })}
-                      onDelete={() => deleteItem(wh.id, it.id)} />
+                      onDelete={() => deleteItem(wh.id, it)} />
                   ))}
                 </tbody>
               </table>

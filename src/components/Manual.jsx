@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { uid } from '../helpers';
 import Modal from './Modal';
 
@@ -21,6 +22,7 @@ export default function Manual() {
   const { state, update } = useStore();
   const L = state.lang;
   const toast = useToast();
+  const confirm = useConfirm();
   const isAdmin = state.role === 'admin';
 
   const [activeType, setActiveType] = useState('general');
@@ -40,8 +42,9 @@ export default function Manual() {
     setEditing(null);
   };
 
-  const deleteSection = (id) => {
-    if (!confirm(tr(L, 'حذف هذا القسم؟', 'Eliminare questa sezione?', 'Delete this section?'))) return;
+  const deleteSection = async (id) => {
+    const sec = manual.find(s => s.id === id);
+    if (!(await confirm({ danger: true, title: tr(L, 'حذف هذا القسم؟', 'Eliminare questa sezione?', 'Delete this section?'), message: sec?.title || '' }))) return;
     update({ manual: manual.filter(s => s.id !== id) });
     toast(tr(L, 'تم الحذف', 'Eliminato', 'Deleted'));
     if (viewing?.id === id) setViewing(null);

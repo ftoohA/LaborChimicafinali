@@ -343,6 +343,9 @@ export default function Dashboard() {
 
   return (
     <>
+      {/* Daily confirmation code — reminder + quick change */}
+      <DailyCodeCard state={state} update={update} today={today} />
+
       {/* Admin announcement controls */}
       <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <button className="primary" onClick={() => setPostingAnnouncement(true)}>
@@ -726,5 +729,53 @@ function ScheduledAlertsModal({ L, T, alerts, onClose, onSave }) {
         <button className="primary" onClick={() => onSave(rows.filter(r => r.text.trim()))}>{T.save}</button>
       </div>
     </Modal>
+  );
+}
+
+/* ---- Daily confirmation code: reminder + one-tap change (admin) ---- */
+function DailyCodeCard({ state, update, today }) {
+  const toast = useToast();
+  const L = state.lang;
+  const code = (state.dailyCodes || {})[today] || '';
+  const [draft, setDraft] = useState(code);
+
+  const save = () => {
+    const v = draft.trim();
+    if (!v) { toast(tr(L, 'اكتب كود اليوم', 'Inserisci il codice di oggi', 'Enter today\'s code'), true); return; }
+    update({ dailyCodes: { ...(state.dailyCodes || {}), [today]: v } });
+    toast(tr(L, 'تم حفظ كود اليوم', 'Codice di oggi salvato', "Today's code saved"));
+  };
+  const random = () => setDraft(String(Math.floor(1000 + Math.random() * 9000)));
+
+  const notSet = !code;
+
+  return (
+    <div className="card" style={{ marginBottom: 12, borderColor: notSet ? 'var(--red)' : 'var(--yellow)', background: notSet ? 'rgba(220,38,38,0.05)' : 'rgba(242,183,5,0.05)' }}>
+      <div className="row" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 30 }}>🔑</div>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>
+            {tr(L, 'كود التأكيد اليومي', 'Codice di conferma giornaliero', 'Daily confirmation code')}
+          </div>
+          <div className="smallmuted" style={{ fontSize: 12 }}>
+            {notSet
+              ? tr(L, '⚠️ لم يتم تعيين كود اليوم — العمال لن يقدروا يأكدوا أي عملية', '⚠️ Codice di oggi non impostato — gli operai non potranno confermare', "⚠️ Today's code not set — workers can't confirm")
+              : tr(L, 'غيّره كل يوم وشاركه مع العمال شفهياً', 'Cambialo ogni giorno e comunicalo agli operai a voce', 'Change it daily and share it with workers verbally')}
+          </div>
+        </div>
+        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+          <input
+            data-dailycode="1"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && save()}
+            placeholder="••••"
+            style={{ width: 110, textAlign: 'center', fontSize: 20, fontWeight: 800, letterSpacing: 3, border: '2px solid var(--yellow)', borderRadius: 8, padding: '8px 10px', background: 'var(--bg)' }}
+          />
+          <button onClick={random} title={tr(L, 'رقم عشوائي', 'Casuale', 'Random')}>🎲</button>
+          <button className="primary" onClick={save}>{tr(L, 'حفظ', 'Salva', 'Save')}</button>
+        </div>
+      </div>
+    </div>
   );
 }

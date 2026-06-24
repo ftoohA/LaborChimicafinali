@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
 import { I18N } from '../i18n';
 import { bancaleEquivalent, stockStatus, uid } from '../helpers';
 import Modal from './Modal';
@@ -9,6 +10,7 @@ export default function Products() {
   const { state, update, addLog } = useStore();
   const T = I18N[state.lang];
   const toast = useToast();
+  const confirm = useConfirm();
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
 
@@ -16,10 +18,10 @@ export default function Products() {
     !search || (p.name + p.company + p.code).toLowerCase().includes(search.toLowerCase())
   );
 
-  const deleteProduct = (id) => {
-    if (!confirm(T.confirm_delete)) return;
-    update({ products: state.products.filter(p => p.id !== id) });
-    addLog({ type: 'delete_product', detail: id });
+  const deleteProduct = async (p) => {
+    if (!(await confirm({ danger: true, title: T.confirm_delete, message: p.name }))) return;
+    update({ products: state.products.filter(x => x.id !== p.id) });
+    addLog({ type: 'delete_product', detail: p.id });
     toast(T.deleted);
   };
 
@@ -108,7 +110,7 @@ export default function Products() {
                 {state.role === 'admin' && (
                   <div className="row" style={{ marginTop: 10 }}>
                     <button onClick={() => setEditing(p)}>{T.edit}</button>
-                    <button className="danger" onClick={() => deleteProduct(p.id)}>{T.delete}</button>
+                    <button className="danger" onClick={() => deleteProduct(p)}>{T.delete}</button>
                   </div>
                 )}
               </div>
