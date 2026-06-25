@@ -143,6 +143,19 @@ export default function WorkerProfile() {
         </div>
       </div>
 
+      {/* Today's manager note for this worker */}
+      {(() => {
+        const todayKey = new Date().toISOString().slice(0, 10);
+        const note = (state.workerDayNotes || {})[todayKey]?.[workerId];
+        if (!note) return null;
+        return (
+          <div className="notes-card" style={{ marginBottom: 14, borderColor: 'var(--brand)' }}>
+            <h3>📝 {tr(L, 'مهمتك اليوم', 'Il tuo compito oggi', 'Your task today')}</h3>
+            <p style={{ whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.7 }}>{note}</p>
+          </div>
+        );
+      })()}
+
       {/* ID card + documents */}
       {(worker?.idCardPhoto || (worker?.documents || []).length > 0) && (
         <div className="card" style={{ marginBottom: 14 }}>

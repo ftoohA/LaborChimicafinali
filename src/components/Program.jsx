@@ -23,6 +23,8 @@ export default function Program() {
   const [confirmBancale, setConfirmBancale] = useState(null); // {pi, ii, rowIdx, action}
   const [notesText, setNotesText] = useState(state.managerNotes[date] || '');
   const [viewingProduct, setViewingProduct] = useState(null);
+  const [adminView, setAdminView] = useState('programs'); // 'programs' | 'operai'
+  const [progIndex, setProgIndex] = useState(0); // one-program-at-a-time pager
 
   const setDate = (d) => {
     update({ progDate: d });
@@ -720,6 +722,15 @@ export default function Program() {
             <button className="primary" onClick={() => setShowAddProg(true)}>+ {T.add_program}</button>
           )}
         </div>
+        {/* View switch: programs vs per-worker board */}
+        <div className="row" style={{ gap: 6, marginTop: 12 }}>
+          <button className={adminView === 'programs' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => setAdminView('programs')}>
+            📋 {state.lang === 'ar' ? 'البرامج' : 'Programmi'}
+          </button>
+          <button className={adminView === 'operai' ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '6px 14px' }} onClick={() => setAdminView('operai')}>
+            👷 {state.lang === 'ar' ? 'العمال' : 'Operai'}
+          </button>
+        </div>
       </div>
 
       <div className="notes-card" style={{ marginBottom: 16 }}>
@@ -728,9 +739,31 @@ export default function Program() {
         <div style={{ marginTop: 8 }}><button className="primary" onClick={saveNotes}>{T.save_notes}</button></div>
       </div>
 
-      {progs.length === 0 ? (
+      {adminView === 'operai' ? (
+        <WorkersBoard state={state} update={update} date={date} allProgs={allProgs} T={T} />
+      ) : progs.length === 0 ? (
         <div className="empty">{T.no_program_today}</div>
-      ) : progs.map(pr => {
+      ) : (() => {
+        const curIdx = Math.min(progIndex, progs.length - 1);
+        return (
+        <>
+          {progs.length > 1 && (() => {
+            const cur = progs[curIdx];
+            const chem = (state.workers || []).find(w => w.id === cur.chemistId);
+            return (
+              <div className="card" style={{ padding: '8px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <button className="ghost" disabled={curIdx <= 0} onClick={() => setProgIndex(curIdx - 1)}>← {state.lang === 'ar' ? 'السابق' : 'Prec.'}</button>
+                <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <ProgBadge type={cur.progType} T={T} />
+                  <strong>{cur.label || T.today_program}</strong>
+                  {chem && <span className="badge warn" style={{ fontSize: 10 }}>🧪 {chem.name}</span>}
+                  <span className="smallmuted mono">{curIdx + 1} / {progs.length}</span>
+                </div>
+                <button className="ghost" disabled={curIdx >= progs.length - 1} onClick={() => setProgIndex(curIdx + 1)}>{state.lang === 'ar' ? 'التالي' : 'Succ.'} →</button>
+              </div>
+            );
+          })()}
+          {[progs[curIdx]].map(pr => {
         const realPi = allProgs.indexOf(pr);
         const allDone = pr.items.every(i => i.status === 'done');
         const chemist = (state.workers || []).find(w => w.id === pr.chemistId);
@@ -874,6 +907,9 @@ export default function Program() {
           </div>
         );
       })}
+        </>
+        );
+      })()}
 
       {showAddProg && (() => {
         // Build chemist prep tasks (with computed quantities) for a Linea program
@@ -1454,5 +1490,76 @@ function ProductDetailsModal({ product, state, T, onClose }) {
       )}
       <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}><button className="primary" onClick={onClose}>{T.close}</button></div>
     </Modal>
+  );
+}
+
+/* ---- Per-worker daily board (admin) ---- */
+function WorkersBoard({ state, update, date, allProgs, T }) {
+  const L = state.lang;
+  const t = (ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
+  const workers = state.workers || [];
+  const dayNotes = (state.workerDayNotes || {})[date] || {};
+
+  const setNote = (wid, val) => update({
+    workerDayNotes: {
+      ...(state.workerDayNotes || {}),
+      [date]: { ...((state.workerDayNotes || {})[date] || {}), [wid]: val },
+    },
+  });
+
+  if (workers.length === 0) {
+    return <div className="empty">{t('لا يوجد عمال', 'Nessun operaio', 'No workers')}</div>;
+  }
+
+  return (
+    <div className="grid cols-2" style={{ gap: 12 }}>
+      {workers.map(w => {
+        // Programs this worker is on today (assigned operaio or chemist)
+        const asWorker = allProgs.filter(pr => (pr.assignedWorkers || []).includes(w.id));
+        const asChemist = allProgs.filter(pr => pr.chemistId === w.id);
+        const seen = new Set();
+        const jobs = [...asChemist, ...asWorker].filter(pr => (seen.has(pr.id) ? false : seen.add(pr.id)));
+
+        return (
+          <div className="card" key={w.id} style={{ margin: 0 }}>
+            <div className="row" style={{ gap: 12, alignItems: 'center', marginBottom: 10 }}>
+              {w.photo
+                ? <img src={w.photo} alt="" style={{ width: 46, height: 46, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--brand)' }} />
+                : <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'var(--panel2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>👤</div>}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>{w.name}</div>
+                <div className="smallmuted" style={{ fontSize: 12 }}>
+                  {jobs.length ? `${jobs.length} ${t('مهمة اليوم', 'incarichi oggi', 'jobs today')}` : t('غير مُعيّن اليوم', 'Non assegnato oggi', 'Not assigned today')}
+                </div>
+              </div>
+            </div>
+
+            {jobs.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                {jobs.map(pr => {
+                  const total = pr.items.length;
+                  const done = pr.items.filter(i => i.status === 'done').length;
+                  const isChemist = pr.chemistId === w.id;
+                  return (
+                    <div key={pr.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)', flexWrap: 'wrap' }}>
+                      <ProgBadge type={pr.progType} T={T} />
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{pr.label || T[`prog_${pr.progType}`]}</span>
+                      {isChemist && <span className="badge warn" style={{ fontSize: 9 }}>🧪 {t('كيميائي', 'Chimico', 'Chemist')}</span>}
+                      <span className="smallmuted mono" style={{ fontSize: 11, marginInlineStart: 'auto' }}>{done}/{total} ✓</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="field" style={{ margin: 0 }}>
+              <label style={{ fontSize: 11 }}>📝 {t('ملاحظة المدير لليوم', 'Nota del responsabile (oggi)', "Manager's note (today)")}</label>
+              <textarea defaultValue={dayNotes[w.id] || ''} placeholder={t('طريقة عمله اليوم...', 'Come lavora oggi...', 'How he works today...')}
+                style={{ minHeight: 54 }} onBlur={e => setNote(w.id, e.target.value)} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
