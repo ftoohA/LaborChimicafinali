@@ -104,6 +104,7 @@ export default function Program() {
   /* ---- Stock deduction on item confirm ---- */
   const handleConfirm = ({ pi, ii, action, pendingRows }) => {
     const it = allProgs[pi].items[ii];
+    if (it.type === 'prep_instruction') { handlePrepConfirm({ pi, ii, action }); return; }
     if (it.type === 'custom_material') { handleCustomConfirm({ pi, ii, action }); return; }
     if (it.prepType === 'liquid') { handleLiquidConfirm({ pi, ii, action, pendingRows }); return; }
     const p = state.products.find(x => x.id === it.productId);
@@ -230,6 +231,16 @@ export default function Program() {
     const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
     update({ programs: newProgs, pastaLiquids: updatedLiquids, warehouses: updatedWarehouses });
     addLog({ type: action === 'done' ? 'liquid_prep' : 'liquid_undo', liquid: liq.name, liters, date, by: state.role });
+    toast(action === 'done' ? T.success_done : T.success_undo);
+    setConfirmItem(null);
+  };
+
+  /* ---- Chemist prep instruction confirm (no stock change; Linea production deducts) ---- */
+  const handlePrepConfirm = ({ pi, ii, action }) => {
+    const rowsUpdate = action === 'done' ? { status: 'done', rows: [{ done: true }] } : { status: 'pending', rows: [{ done: false }] };
+    const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
+    update({ programs: newProgs });
+    addLog({ type: action === 'done' ? 'prep_done' : 'prep_undo', date, by: state.role });
     toast(action === 'done' ? T.success_done : T.success_undo);
     setConfirmItem(null);
   };
@@ -461,6 +472,30 @@ export default function Program() {
                           <tbody>
                             {pr.items.map((it, ii) => {
                               const isDone = it.status === 'done';
+                              if (it.type === 'prep_instruction') {
+                                return (
+                                  <tr key={`${realPi}-${ii}`} className={isDone ? 'row-done' : 'row-pending'} style={{ background: 'rgba(80,180,120,0.07)' }}>
+                                    <td style={{ verticalAlign: 'middle' }}>
+                                      <div style={{ fontWeight: 700, fontSize: 13 }}>🧪 {state.lang === 'ar' ? 'تحضير' : 'Preparare'}: {it.productName}</div>
+                                      <ul style={{ margin: '4px 0 0', paddingInlineStart: 18, fontSize: 12 }}>
+                                        {(it.ingredients || []).map((g, gi) => (
+                                          <li key={gi}><strong>{g.name}</strong>: {+g.amount.toFixed(2)} {g.unit} <span className="smallmuted">({g.percent}%)</span></li>
+                                        ))}
+                                      </ul>
+                                    </td>
+                                    <td className="mono" style={{ fontWeight: 700, verticalAlign: 'middle' }}>{+(it.totalLiters || 0).toFixed(1)} L</td>
+                                    <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                      {isDone
+                                        ? (<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                            <button className="ghost" style={{ fontSize: 14, padding: '2px 6px' }} title="Annulla" onClick={() => setConfirmItem({ pi: realPi, ii, action: 'undo' })}>↩</button>
+                                            <span style={{ color: 'var(--green)', fontSize: 20, fontWeight: 700 }}>✓</span>
+                                          </span>)
+                                        : (<button className="primary" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setConfirmItem({ pi: realPi, ii, action: 'done' })}>{state.lang === 'ar' ? 'تأكيد' : 'Conferma'}</button>)
+                                      }
+                                    </td>
+                                  </tr>
+                                );
+                              }
                               const isLiq = it.prepType === 'liquid';
                               const isCustom = it.type === 'custom_material';
                               let name = '?', sub = '', qtyLabel = it.target;
@@ -693,6 +728,35 @@ export default function Program() {
                 </thead>
                 <tbody>
                   {pr.items.map((it, ii) => {
+                    const colSpanName = pr.progType !== 'amazon' ? 3 : 1;
+                    if (it.type === 'prep_instruction') {
+                      return (
+                        <tr key={ii} className={it.status === 'done' ? 'row-done' : 'row-pending'} style={{ background: 'rgba(80,180,120,0.07)' }}>
+                          <td className="mono smallmuted">{ii + 1}</td>
+                          <td colSpan={colSpanName}>
+                            <strong>🧪 {state.lang === 'ar' ? 'تحضير' : 'Preparare'}: {it.productName}</strong>
+                            <span className="smallmuted" style={{ fontSize: 11 }}> · {it.target} {T.bancale_equiv}</span>
+                            <ul style={{ margin: '4px 0 0', paddingInlineStart: 18, fontSize: 12 }}>
+                              {(it.ingredients || []).map((g, gi) => (
+                                <li key={gi}><strong>{g.name}</strong>: {+g.amount.toFixed(2)} {g.unit} <span className="smallmuted">({g.percent}%{g.warehouse ? ` · ${g.warehouse}` : ''})</span></li>
+                              ))}
+                            </ul>
+                          </td>
+                          <td className="mono smallmuted">{+(it.totalLiters || 0).toFixed(1)} L</td>
+                          <td><input className="row-notes-inp" type="text" defaultValue={it.notes || ''} placeholder="..." onBlur={e => updateInlineField(realPi, ii, 'notes', e.target.value)} /></td>
+                          <td style={{ textAlign: 'center' }}>
+                            {it.status === 'done' ? (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button className="ghost" style={{ fontSize: 16, padding: '2px 6px' }} title={T.undo} onClick={() => setConfirmItem({ pi: realPi, ii, action: 'undo' })}>↩</button>
+                                <span className="badge ok">✓</span>
+                              </span>
+                            ) : (
+                              <input type="checkbox" className="confirm-cb" title={T.confirm} onChange={e => { if (e.target.checked) { e.target.checked = false; setConfirmItem({ pi: realPi, ii, action: 'done' }); } }} />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
                     const isCustom = it.type === 'custom_material';
                     if (isCustom) {
                       const wh = (state.warehouses || []).find(w => w.id === it.warehouseId);
@@ -766,9 +830,47 @@ export default function Program() {
       })}
 
       {showAddProg && (() => {
+        // Build chemist prep tasks (with computed quantities) for a Linea program
+        const buildPrepTasks = (prog) => {
+          const preps = [];
+          prog.items.forEach(it => {
+            if (it.prepType === 'liquid' || it.type === 'custom_material') return;
+            const p = state.products.find(x => x.id === it.productId);
+            if (!p) return;
+            const recipe = (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0);
+            if (!recipe.length) return;
+            const target = Number(it.target) || 0;
+            const litersPerBancale = p.isPasta ? 12 * (Number(p.liter) || 0) : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
+            const base = litersPerBancale * target;
+            const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
+            const UNIT_LBL = { liter: 'L', ml: 'ml', kg: 'kg', g: 'g', carton: 'cart.', piece: 'pz' };
+            const ingredients = recipe.map(r => {
+              const w = (state.warehouses || []).find(x => x.id === r.warehouseId);
+              const itm = w && (w.items || []).find(i => i.id === r.itemId);
+              const grossL = (Number(r.percent) / 100) * base * wasteMul;
+              const amount = (w?.unit === 'ml' || w?.unit === 'g') ? grossL * 1000 : grossL;
+              return { name: itm ? itm.name : r.name, warehouse: w?.name || '', unit: UNIT_LBL[w?.unit] || w?.unit || 'L', percent: Number(r.percent), amount };
+            });
+            preps.push({ id: uid(), type: 'prep_instruction', productId: p.id, productName: p.name, target, totalLiters: base, ingredients, notes: '', status: 'pending', rows: [{ done: false }] });
+          });
+          return preps;
+        };
+
         const saveProg = (prog) => {
-          const existing = state.programs[date] || [];
-          update({ programs: { ...state.programs, [date]: [...existing, prog] } });
+          let progsForDate = [...(state.programs[date] || []), prog];
+          // Linea program → auto-add prep tasks to the Chimico (location) program
+          if (prog.progType === 'daily') {
+            const preps = buildPrepTasks(prog);
+            if (preps.length) {
+              const idx = progsForDate.findIndex(pp => pp.progType === 'location');
+              if (idx >= 0) {
+                progsForDate = progsForDate.map((pp, i) => i !== idx ? pp : { ...pp, items: [...pp.items, ...preps] });
+              } else {
+                progsForDate = [...progsForDate, { id: uid(), label: T.prog_location, progType: 'location', chemistId: prog.chemistId || '', assignedWorkers: [], items: preps }];
+              }
+            }
+          }
+          update({ programs: { ...state.programs, [date]: progsForDate } });
           addLog({ type: 'program_added', date, count: prog.items.length, by: state.role });
           toast(T.success_added);
           setShowAddProg(false);
