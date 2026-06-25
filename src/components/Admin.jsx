@@ -3,8 +3,9 @@ import { useStore } from '../store';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { I18N, ADMIN_PASS, WORKER_PASS } from '../i18n';
-import { uid, roundedHours, getDeviceId } from '../helpers';
+import { uid, netHours, getDeviceId } from '../helpers';
 import Modal from './Modal';
+import WorkerProfileView from './WorkerProfileView';
 
 export default function Admin() {
   const { state, update, addLog } = useStore();
@@ -17,11 +18,12 @@ export default function Admin() {
   const [addingWorker, setAddingWorker] = useState(false);
   const [editingWorker, setEditingWorker] = useState(null);   // full edit modal
   const [editingWorkerPin, setEditingWorkerPin] = useState(null); // worker object
+  const [viewingWorker, setViewingWorker] = useState(null);   // profile view modal
 
   const thisMonth = new Date().toISOString().slice(0, 7);
   const getMonthlyHours = (wid) => (state.attendance || [])
     .filter(r => r.workerId === wid && r.date && r.date.startsWith(thisMonth))
-    .reduce((sum, r) => sum + (roundedHours(r.clockIn, r.clockOut) || 0), 0);
+    .reduce((sum, r) => sum + (netHours(r) || 0), 0);
 
   const workers = state.workers || [];
   const getRating = (w) => (w.monthlyRatings?.[thisMonth] ?? 0);
@@ -260,6 +262,9 @@ export default function Admin() {
                     </td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
+                        <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setViewingWorker(w)}>
+                          👤 {state.lang === 'ar' ? 'الملف' : state.lang === 'it' ? 'Profilo' : 'Profile'}
+                        </button>
                         <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setEditingWorker(w)}>
                           ✏️ {state.lang === 'ar' ? 'تعديل' : state.lang === 'it' ? 'Modifica' : 'Edit'}
                         </button>
@@ -348,6 +353,13 @@ export default function Admin() {
       {addingWorker && (
         <WorkerModal T={T} lang={state.lang} workers={workers} onClose={() => setAddingWorker(false)}
           onSave={worker => { update({ workers: [...(state.workers || []), worker] }); toast(T.success_added); setAddingWorker(false); }} />
+      )}
+      {viewingWorker && (
+        <Modal onClose={() => setViewingWorker(null)} maxWidth={700}>
+          <WorkerProfileView worker={viewingWorker} actions={
+            <button className="ghost" onClick={() => setViewingWorker(null)}>✕ {T.close}</button>
+          } />
+        </Modal>
       )}
       {editingWorker && (
         <WorkerModal T={T} lang={state.lang} worker={editingWorker} workers={workers} onClose={() => setEditingWorker(null)}

@@ -162,6 +162,14 @@ export function purgeOldAttendancePhotos(attendance, cleanupDay = 10) {
   return { changed, attendance: changed ? out : (attendance || []) };
 }
 
+// Worked hours for a record = rounded session minus lunch hours (never below 0)
+export function netHours(rec) {
+  if (!rec) return null;
+  const h = roundedHours(rec.clockIn, rec.clockOut);
+  if (h == null) return null;
+  return Math.max(0, h - (Number(rec.lunch) || 0));
+}
+
 // Persistent per-device identifier (stored in this browser's localStorage)
 export function getDeviceId() {
   let id = localStorage.getItem('deviceId');

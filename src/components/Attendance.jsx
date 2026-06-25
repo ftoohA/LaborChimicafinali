@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { I18N } from '../i18n';
-import { uid, todayStr, roundedHours } from '../helpers';
+import { uid, todayStr, netHours } from '../helpers';
 import Modal from './Modal';
 import { useToast } from './Toast';
 
@@ -81,11 +81,23 @@ export default function Attendance() {
     if (!isManual) toast(action === 'in' ? tr(L, 'تم تسجيل الدخول', 'Entrata registrata', 'Clocked in') : tr(L, 'تم تسجيل الخروج', 'Uscita registrata', 'Clocked out'));
   };
 
-  // total hours today (rounded per factory rules)
-  const totalHours = workers.reduce((sum, w) => {
-    const r = recFor(w.id);
-    return sum + (roundedHours(r?.clockIn, r?.clockOut) || 0);
-  }, 0);
+  // Manual edit: set in/out/lunch in ONE update (avoids the stale-overwrite bug)
+  const applyManual = (workerId, inTime, outTime, lunch) => {
+    const recs = records.map(r => ({ ...r }));
+    let rec = recs.find(r => r.workerId === workerId && r.date === today);
+    if (!rec) { rec = { id: uid(), workerId, date: today }; recs.push(rec); }
+    if (inTime) rec.clockIn = `${today}T${inTime}:00`;
+    if (outTime) rec.clockOut = `${today}T${outTime}:00`;
+    rec.lunch = Number(lunch) || 0;
+    rec.manual = true;
+    update({ attendance: recs });
+    addLog({ type: 'clock_out', workerId, manual: true, by: state.role });
+    toast(T.success_added);
+    setManual(null);
+  };
+
+  // total worked hours today (rounded, minus lunch)
+  const totalHours = workers.reduce((sum, w) => sum + (netHours(recFor(w.id)) || 0), 0);
 
   return (
     <>
@@ -102,7 +114,7 @@ export default function Attendance() {
           <div className="global-inv-grid" style={{ marginTop: 12 }}>
             {workers.map(w => {
               const r = recFor(w.id);
-              const h = roundedHours(r?.clockIn, r?.clockOut);
+              const h = netHours(r);
               const status = !r || !r.clockIn ? 'none' : !r.clockOut ? 'in' : 'done';
               return (
                 <div className="inv-card" key={w.id} style={{ borderColor: status === 'in' ? 'var(--green)' : 'var(--line)' }}>
@@ -130,7 +142,9 @@ export default function Attendance() {
                     </tbody>
                   </table>
                   <div style={{ textAlign: 'center', margin: '6px 0', fontWeight: 700, color: 'var(--green)' }}>
-                    {h != null ? `${h.toFixed(1)} ${tr(L, 'ساعة', 'ore', 'h')}` : ''} {r?.manual && <span className="smallmuted">({tr(L, 'يدوي', 'manuale', 'manual')})</span>}
+                    {h != null ? `${h.toFixed(1)} ${tr(L, 'ساعة', 'ore', 'h')}` : ''}
+                    {r?.lunch > 0 && <span className="smallmuted" style={{ fontSize: 10 }}> 🍽️ −{r.lunch}h</span>}
+                    {r?.manual && <span className="smallmuted"> ({tr(L, 'يدوي', 'manuale', 'manual')})</span>}
                   </div>
                   <div className="row" style={{ gap: 6 }}>
                     {status !== 'done' && (
@@ -184,12 +198,7 @@ export default function Attendance() {
       {manual && (
         <ManualModal L={L} T={T} worker={manual} rec={recFor(manual.id)} today={today}
           onClose={() => setManual(null)}
-          onSave={(inTime, outTime) => {
-            if (inTime) applyPunch(manual.id, 'in', null, true, `${today}T${inTime}:00`);
-            if (outTime) applyPunch(manual.id, 'out', null, true, `${today}T${outTime}:00`);
-            toast(T.success_added);
-            setManual(null);
-          }} />
+          onSave={(inTime, outTime, lunch) => applyManual(manual.id, inTime, outTime, lunch)} />
       )}
 
       {pinPrompt && (() => {
@@ -233,20 +242,46 @@ function ManualModal({ L, T, worker, rec, today, onClose, onSave }) {
   const toHM = (iso) => iso ? new Date(iso).toTimeString().slice(0, 5) : '';
   const [inT, setInT] = useState(toHM(rec?.clockIn));
   const [outT, setOutT] = useState(toHM(rec?.clockOut));
+  const [lunch, setLunch] = useState(rec?.lunch ?? 0);
+
+  // Live preview of worked hours (rounded session minus lunch)
+  const round = (ci, co) => {
+    if (!ci || !co) return null;
+    const ms = new Date(`${today}T${co}:00`) - new Date(`${today}T${ci}:00`);
+    if (ms <= 0) return 0;
+    const mins = ms / 60000, full = Math.floor(mins / 60), rem = mins % 60;
+    return full + (rem > 45 ? 1 : rem > 20 ? 0.5 : 0);
+  };
+  const gross = round(inT, outT);
+  const net = gross == null ? null : Math.max(0, gross - (Number(lunch) || 0));
+
   return (
-    <Modal onClose={onClose} maxWidth={340}>
+    <Modal onClose={onClose} maxWidth={360}>
       <h3>✏️ {tr(L, 'تعديل يدوي', 'Modifica manuale', 'Manual Edit')} — {worker.name}</h3>
-      <div className="field">
-        <label>🟢 {tr(L, 'وقت الدخول', 'Ora entrata', 'Clock In')}</label>
-        <input type="time" value={inT} onChange={e => setInT(e.target.value)} />
+      <div className="grid cols-2">
+        <div className="field">
+          <label>🟢 {tr(L, 'وقت الدخول', 'Ora entrata', 'Clock In')}</label>
+          <input type="time" value={inT} onChange={e => setInT(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>🔴 {tr(L, 'وقت الخروج', 'Ora uscita', 'Clock Out')}</label>
+          <input type="time" value={outT} onChange={e => setOutT(e.target.value)} />
+        </div>
       </div>
       <div className="field">
-        <label>🔴 {tr(L, 'وقت الخروج', 'Ora uscita', 'Clock Out')}</label>
-        <input type="time" value={outT} onChange={e => setOutT(e.target.value)} />
+        <label>🍽️ {tr(L, 'ساعات الغداء (تُخصم)', 'Ore pausa pranzo (sottratte)', 'Lunch hours (deducted)')}</label>
+        <input type="number" step="0.5" min="0" value={lunch} onChange={e => setLunch(e.target.value)} placeholder="0 / 0.5 / 1" />
       </div>
-      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+      {net != null && (
+        <div style={{ textAlign: 'center', margin: '4px 0 10px', fontSize: 13 }}>
+          {tr(L, 'صافي ساعات العمل', 'Ore nette', 'Net hours')}:{' '}
+          <strong style={{ color: 'var(--green)' }}>{net.toFixed(1)}h</strong>
+          {Number(lunch) > 0 && <span className="smallmuted"> ({gross.toFixed(1)} − {Number(lunch)})</span>}
+        </div>
+      )}
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
         <button onClick={onClose}>{T.cancel}</button>
-        <button className="primary" onClick={() => onSave(inT, outT)}>{T.save}</button>
+        <button className="primary" onClick={() => onSave(inT, outT, lunch)}>{T.save}</button>
       </div>
     </Modal>
   );
