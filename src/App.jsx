@@ -14,8 +14,9 @@ import Warehouses from './components/Warehouses';
 import FinishedProducts from './components/FinishedProducts';
 import WorkerProfile from './components/WorkerProfile';
 import Manual from './components/Manual';
+import Shortages from './components/Shortages';
 
-const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'finished', 'program', 'attendance', 'history', 'stats', 'manual', 'admin'];
+const TABS_ADMIN = ['dashboard', 'products', 'warehouses', 'finished', 'shortages', 'program', 'attendance', 'history', 'stats', 'manual', 'admin'];
 const TABS_WORKER = ['dashboard', 'program', 'attendance', 'profile', 'manual', 'history'];
 
 export default function App() {
@@ -64,6 +65,7 @@ export default function App() {
         {state.tab === 'products'   && <Products />}
         {state.tab === 'warehouses' && <Warehouses />}
         {state.tab === 'finished'   && <FinishedProducts />}
+        {state.tab === 'shortages'  && <Shortages />}
         {state.tab === 'inventory'  && <Inventory />}
         {state.tab === 'program'    && <Program />}
         {state.tab === 'attendance' && <Attendance />}

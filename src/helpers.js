@@ -87,6 +87,59 @@ export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+/* Per-bancale material consumption of a product + how many bancale are feasible
+   with current stock, and what is short for a given target.
+   Returns { possible, consumers:[{type,name,perBancale,available,unit}], shortages:[…+needed,missing] } */
+export function productCapacity(p, target, state) {
+  const s = state.settings || {};
+  const wasteTicket = s.wasteTicket ?? 4, wasteCap = s.wasteCap ?? 2, wasteJer = s.wasteJerrican ?? 1.8;
+  const cons = [];
+  const add = (type, name, perBancale, available, unit) => { if (perBancale > 0) cons.push({ type, name, perBancale, available: available || 0, unit }); };
+
+  // Liquid/material composition (shared by Linea & pasta)
+  const litersPerBancale = p.isPasta ? 12 * (Number(p.liter) || 0) : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
+  const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
+  (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0).forEach(r => {
+    const w = (state.warehouses || []).find(x => x.id === r.warehouseId);
+    const itm = w && (w.items || []).find(i => i.id === r.itemId);
+    const grossL = (Number(r.percent) / 100) * litersPerBancale * wasteMul;
+    const perB = (w?.unit === 'ml' || w?.unit === 'g') ? grossL * 1000 : grossL;
+    add('liquidi', `${itm ? itm.name : r.name}${w ? ` · ${w.name}` : ''}`, perB, itm?.stock || 0, w?.unit || 'L');
+  });
+
+  if (!p.isPasta) {
+    add('etichette', `${p.name} · etichetta fronte`, (Number(p.ticketsFront) || 0) * (1 + wasteTicket / 100), p.stock?.ticketsFront, 'pz');
+    add('etichette', `${p.name} · etichetta retro`, (Number(p.ticketsBack) || 0) * (1 + wasteTicket / 100), p.stock?.ticketsBack, 'pz');
+    if (Number(p.capsPer) > 0) {
+      if (p.coverId) { const c = (state.covers || []).find(x => x.id === p.coverId); add('coperchi', c ? c.name : 'Coperchio', p.capsPer * (1 + wasteCap / 100), c?.stock, 'pz'); }
+      else add('coperchi', `${p.name} · tappi`, p.capsPer * (1 + wasteCap / 100), p.stock?.caps, 'pz');
+    }
+    if (Number(p.jerricansPer) > 0) {
+      if (p.basketId) { const b = (state.baskets || []).find(x => x.id === p.basketId); add('taniche', b ? b.name : 'Tanica', p.jerricansPer * (1 + wasteJer / 100), b?.stock, 'pz'); }
+      else add('taniche', `${p.name} · taniche`, p.jerricansPer * (1 + wasteJer / 100), p.stock?.jerricans, 'pz');
+    }
+    if (p.hasCarton && p.cartonId) { const c = (state.cartonTypes || []).find(x => x.id === p.cartonId); add('cartoni', c ? c.name : 'Cartone', (Number(p.capsPer) || 0) * (1 + ((c?.waste || 0) / 100)), c?.stock, 'pz'); }
+  } else {
+    const cartons = 12;
+    if (p.pastaBoxId) { const b = (state.pastaBoxes || []).find(x => x.id === p.pastaBoxId); add('pasta', b ? b.name : 'Scatola pasta', cartons * (1 + (s.wastePastaBox ?? 2) / 100), b?.stock, 'pz'); }
+    if (p.pastaLidId) { const l = (state.pastaLids || []).find(x => x.id === p.pastaLidId); add('pasta', l ? l.name : 'Coperchio pasta', cartons * (1 + (s.wastePastaLid ?? 2) / 100), l?.stock, 'pz'); }
+    if (p.hasSponge) {
+      add('pasta', `${p.name} · spugne`, cartons * (1 + (s.wastePastaSponge ?? 2) / 100), (state.pastaStock?.sponges) || 0, 'pz');
+      add('pasta', `${p.name} · coperchi spugna`, cartons * (1 + (s.wastePastaSpongeLid ?? 2) / 100), (state.pastaStock?.spongeLids) || 0, 'pz');
+    }
+  }
+
+  let possible = Infinity;
+  cons.forEach(c => { possible = Math.min(possible, c.available / c.perBancale); });
+  possible = possible === Infinity ? Infinity : Math.floor(possible + 1e-9);
+
+  const shortages = cons
+    .filter(c => c.available < target * c.perBancale - 1e-9)
+    .map(c => ({ ...c, needed: target * c.perBancale, missing: target * c.perBancale - c.available }));
+
+  return { possible, consumers: cons, shortages };
+}
+
 // Persistent per-device identifier (stored in this browser's localStorage)
 export function getDeviceId() {
   let id = localStorage.getItem('deviceId');

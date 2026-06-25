@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
 import { I18N, PROG_TYPES } from '../i18n';
-import { todayStr, updateProgramItem, uid } from '../helpers';
+import { todayStr, updateProgramItem, uid, productCapacity } from '../helpers';
 import Modal from './Modal';
 import ProgBadge from './ProgBadge';
 import { useConfirm } from './ConfirmDialog';
@@ -972,6 +972,43 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
         </table>
       </div>
       <button style={{ marginTop: 8 }} onClick={addRow}>+ {isLiquidPrep ? (state.lang === 'ar' ? 'سائل' : 'Liquido') : T.select_product}</button>
+
+      {/* Shortage check: warn if stock can't cover the target */}
+      {!isLiquidPrep && (() => {
+        const warnings = rows
+          .filter(r => r.productId && Number(r.target) > 0)
+          .map(r => {
+            const prod = state.products.find(p => p.id === r.productId);
+            if (!prod) return null;
+            const cap = productCapacity(prod, Number(r.target), state);
+            if (!cap.shortages.length) return null;
+            return { prod, target: Number(r.target), ...cap };
+          })
+          .filter(Boolean);
+        if (!warnings.length) return null;
+        return (
+          <div style={{ marginTop: 12, border: '1px solid var(--red)', borderRadius: 8, background: 'rgba(220,38,38,0.06)', padding: '10px 14px' }}>
+            <div style={{ fontWeight: 800, color: 'var(--red)', marginBottom: 6 }}>
+              ⚠️ {state.lang === 'ar' ? 'المخزون مش هيكمّل الهدف' : 'Le scorte non bastano per l\'obiettivo'}
+            </div>
+            {warnings.map(w => (
+              <div key={w.prod.id} style={{ marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>
+                  {w.prod.name}: {state.lang === 'ar' ? 'تقدر تعمل' : 'puoi fare'} <span style={{ color: 'var(--orange)' }}>{Number.isFinite(w.possible) ? w.possible : '∞'}</span> / {w.target} {T.bancale_equiv}
+                </div>
+                <ul style={{ margin: '4px 0 0', paddingInlineStart: 18, fontSize: 12 }}>
+                  {w.shortages.map((sh, i) => (
+                    <li key={i} style={{ color: 'var(--muted)' }}>
+                      <strong>{sh.name}</strong> — {state.lang === 'ar' ? 'ناقص' : 'manca'} <span style={{ color: 'var(--red)', fontWeight: 700 }}>{Math.ceil(sh.missing).toLocaleString()} {sh.unit}</span>
+                      <span className="smallmuted"> ({state.lang === 'ar' ? 'متاح' : 'disp.'} {Math.floor(sh.available).toLocaleString()} / {state.lang === 'ar' ? 'مطلوب' : 'serve'} {Math.ceil(sh.needed).toLocaleString()})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Custom warehouse materials — only when producing (not in liquid prep) */}
       {!isLiquidPrep && (state.warehouses || []).length > 0 && (
