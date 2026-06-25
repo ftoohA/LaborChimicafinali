@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { I18N } from '../i18n';
 import { bancaleEquivalent, stockStatus, todayStr, uid } from '../helpers';
@@ -7,6 +7,32 @@ import Modal from './Modal';
 import { useToast } from './Toast';
 
 const tr = (L, ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
+
+// Short attention chime via Web Audio — 'urgent' = 3 rising beeps, 'scheduled' = gentle two-tone
+let _audioCtx = null;
+function playChime(kind) {
+  try {
+    _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t0 = ctx.currentTime;
+    const notes = kind === 'urgent'
+      ? [[880, 0], [880, 0.2], [1175, 0.4]]
+      : [[660, 0], [988, 0.17]];
+    notes.forEach(([freq, t]) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      o.connect(g); g.connect(ctx.destination);
+      const s = t0 + t, dur = 0.16;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.28, s + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+      o.start(s); o.stop(s + dur + 0.02);
+    });
+  } catch { /* audio not allowed yet */ }
+}
 
 const DAY_NAMES = {
   ar: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
@@ -138,11 +164,35 @@ export default function Dashboard() {
   const [postingAnnouncement, setPostingAnnouncement] = useState(false);
   const [manageScheduled, setManageScheduled] = useState(false);
 
+  // Re-render every 30s so scheduled alerts appear/disappear (and chime) on time
+  const [, setTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setTick(t => t + 1), 30000); return () => clearInterval(id); }, []);
+
   const now = new Date();
   const announcements = (state.announcements || []).filter(a => a.active);
   const scheduledAlerts = (state.scheduledAlerts || []).filter(sa =>
-    sa.active && sa.dayOfWeek === now.getDay() && now.getHours() >= sa.hour
+    sa.active && sa.dayOfWeek === now.getDay()
+    && now.getHours() >= sa.hour
+    && now.getHours() < (sa.untilHour ?? 24)
   );
+
+  // Play a chime when a new alert/announcement appears (once per appearance)
+  const soundedRef = useRef(new Set());
+  const alertKey = announcements.map(a => 'a' + a.id).join() + '|' + scheduledAlerts.map(s => 's' + s.id).join();
+  useEffect(() => {
+    const activeIds = [...announcements.map(a => 'a' + a.id), ...scheduledAlerts.map(s => 's' + s.id)];
+    let played = false;
+    for (const a of announcements) {
+      const k = 'a' + a.id;
+      if (!soundedRef.current.has(k)) { soundedRef.current.add(k); if (!played) { playChime('urgent'); played = true; } }
+    }
+    for (const s of scheduledAlerts) {
+      const k = 's' + s.id;
+      if (!soundedRef.current.has(k)) { soundedRef.current.add(k); if (!played) { playChime('scheduled'); played = true; } }
+    }
+    // forget ids no longer active so they re-sound next time they appear
+    [...soundedRef.current].forEach(id => { if (!activeIds.includes(id)) soundedRef.current.delete(id); });
+  }, [alertKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismissAnnouncement = (id) => {
     update({ announcements: (state.announcements || []).map(a => a.id === id ? { ...a, active: false } : a) });
@@ -157,6 +207,9 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--yellow)' }}>
                 {tr(state.lang, 'تنبيه مجدول', 'Avviso programmato', 'Scheduled Alert')}
+                <span className="smallmuted" style={{ fontSize: 11, marginInlineStart: 8 }}>
+                  ⏰ {String(sa.hour).padStart(2, '0')}:00–{String(sa.untilHour ?? 24).padStart(2, '0')}:00
+                </span>
               </div>
               <div style={{ marginTop: 4, fontSize: 15, lineHeight: 1.7 }}>{sa.text}</div>
             </div>
@@ -684,7 +737,7 @@ function AnnouncementModal({ L, T, onClose, onSave }) {
 
 function ScheduledAlertsModal({ L, T, alerts, onClose, onSave }) {
   const [rows, setRows] = useState(alerts.map(a => ({ ...a })));
-  const addRow = () => setRows(r => [...r, { id: uid(), text: '', dayOfWeek: 4, hour: 8, active: true }]);
+  const addRow = () => setRows(r => [...r, { id: uid(), text: '', dayOfWeek: 4, hour: 8, untilHour: 9, active: true }]);
   const del = (id) => setRows(r => r.filter(x => x.id !== id));
   const setR = (id, f, v) => setRows(r => r.map(x => x.id !== id ? x : { ...x, [f]: v }));
   const days = DAY_NAMES[L] || DAY_NAMES.en;
@@ -705,8 +758,12 @@ function ScheduledAlertsModal({ L, T, alerts, onClose, onSave }) {
               </select>
             </div>
             <div className="field" style={{ flex: 1, margin: 0 }}>
-              <label style={{ fontSize: 11 }}>{tr(L, 'الساعة', 'Ora', 'Hour')}</label>
+              <label style={{ fontSize: 11 }}>{tr(L, 'من الساعة', 'Dalle ore', 'From hour')}</label>
               <input type="number" min={0} max={23} value={row.hour} onChange={e => setR(row.id, 'hour', Number(e.target.value))} />
+            </div>
+            <div className="field" style={{ flex: 1, margin: 0 }}>
+              <label style={{ fontSize: 11 }}>{tr(L, 'حتى الساعة', 'Fino alle', 'Until hour')}</label>
+              <input type="number" min={1} max={24} value={row.untilHour ?? 24} onChange={e => setR(row.id, 'untilHour', Number(e.target.value))} />
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 2, cursor: 'pointer' }}>
               <input type="checkbox" checked={row.active} onChange={e => setR(row.id, 'active', e.target.checked)} />
