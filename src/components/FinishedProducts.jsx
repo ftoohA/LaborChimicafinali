@@ -29,14 +29,22 @@ export default function FinishedProducts() {
     toast(tr(L, 'تمت الإضافة', 'Aggiunto', 'Added'));
   };
 
+  // Append a shipped-order record to the orders log
+  const recordOrder = (orderItems, note, patch) => {
+    const order = { id: uid(), ts: Date.now(), note: note || '', by: state.role, items: orderItems };
+    update({ ...patch, orders: [...(state.orders || []), order] });
+  };
+
   const outLinea = (items, note) => {
     const lf = { ...lineaFinished };
+    const orderItems = [];
     items.forEach(({ productId, qty }) => {
       lf[productId] = Math.max(0, (lf[productId] || 0) - qty);
       const prod = lineaProducts.find(p => p.id === productId);
       addLog({ type: 'linea_out', productId, product: prod?.name, qty, reason: note, by: state.role });
+      orderItems.push({ source: 'linea', productId, name: prod?.name || productId, qty, unit: tr(L, 'بانكاله', 'bancale', 'bancale') });
     });
-    update({ lineaFinished: lf });
+    recordOrder(orderItems, note, { lineaFinished: lf });
     toast(tr(L, 'تم الشحن', 'Spedito', 'Shipped'));
   };
 
@@ -50,23 +58,27 @@ export default function FinishedProducts() {
 
   const outPasta = (items, note) => {
     const pf = { ...pastaFinished };
+    const orderItems = [];
     items.forEach(({ productId, qty }) => {
       pf[productId] = Math.max(0, (pf[productId] || 0) - qty);
       const prod = pastaProducts.find(p => p.id === productId);
       addLog({ type: 'pasta_out', productId, product: prod?.name, qty, reason: note, by: state.role });
+      orderItems.push({ source: 'pasta', productId, name: prod?.name || productId, qty, unit: tr(L, 'كرتونة', 'cartoni', 'cartons') });
     });
-    update({ pastaFinished: pf });
+    recordOrder(orderItems, note, { pastaFinished: pf });
     toast(tr(L, 'تم الشحن', 'Spedito', 'Shipped'));
   };
 
   const outAmazon = (items, note) => {
     const af = { ...amazonFinished };
+    const orderItems = [];
     items.forEach(({ productId, qty }) => {
       af[productId] = Math.max(0, (af[productId] || 0) - qty);
       const prod = lineaProducts.find(p => p.id === productId);
       addLog({ type: 'amazon_out', productId, product: prod?.name, qty, reason: note, by: state.role });
+      orderItems.push({ source: 'amazon', productId, name: prod?.name || productId, qty, unit: tr(L, 'كرتونة', 'cartoni', 'cartons') });
     });
-    update({ amazonFinished: af });
+    recordOrder(orderItems, note, { amazonFinished: af });
     toast(tr(L, 'تم الشحن', 'Spedito', 'Shipped'));
   };
 
@@ -75,21 +87,27 @@ export default function FinishedProducts() {
     const lf = { ...lineaFinished };
     const pf = { ...pastaFinished };
     const af = { ...amazonFinished };
+    const orderItems = [];
     items.forEach(({ source, productId, qty }) => {
       if (source === 'linea')  lf[productId] = Math.max(0, (lf[productId] || 0) - qty);
       if (source === 'pasta')  pf[productId] = Math.max(0, (pf[productId] || 0) - qty);
       if (source === 'amazon') af[productId] = Math.max(0, (af[productId] || 0) - qty);
       const prod = state.products.find(p => p.id === productId);
       addLog({ type: 'combined_order_out', source, productId, product: prod?.name, qty, reason: note, by: state.role });
+      const unit = source === 'linea' ? tr(L, 'بانكاله', 'bancale', 'bancale') : tr(L, 'كرتونة', 'cartoni', 'cartons');
+      orderItems.push({ source, productId, name: prod?.name || productId, qty, unit });
     });
-    update({ lineaFinished: lf, pastaFinished: pf, amazonFinished: af });
+    recordOrder(orderItems, note, { lineaFinished: lf, pastaFinished: pf, amazonFinished: af });
     toast(tr(L, 'تم تسجيل الأوردر', 'Ordine registrato', 'Order recorded'));
   };
+
+  const deleteOrder = (id) => update({ orders: (state.orders || []).filter(o => o.id !== id) });
 
   const TABS = [
     { key: 'linea',  label: tr(L, '📦 الخط',   '📦 Linea',  '📦 Linea')  },
     { key: 'pasta',  label: tr(L, '🍝 الباستا', '🍝 Pasta',  '🍝 Pasta')  },
     { key: 'amazon', label: tr(L, '🛒 أمازون',  '🛒 Amazon', '🛒 Amazon') },
+    { key: 'orders', label: tr(L, '🚚 الأوردرات', '🚚 Ordini', '🚚 Orders') },
   ];
 
   return (
@@ -179,6 +197,10 @@ export default function FinishedProducts() {
         </div>
       )}
 
+      {tab === 'orders' && (
+        <OrdersLog L={L} orders={state.orders || []} isAdmin={isAdmin} onDelete={deleteOrder} />
+      )}
+
       {modal === 'add_linea' && (
         <AddStockModal L={L}
           title={tr(L, '+ إضافة بانكاله (خط)', '+ Aggiungi bancale (Linea)', '+ Add Bancale (Linea)')}
@@ -222,6 +244,59 @@ export default function FinishedProducts() {
           onSave={(items, note) => { applyCombinedOrder(items, note); setModal(null); }} />
       )}
     </>
+  );
+}
+
+const SRC_LABEL = {
+  linea:  { ar: 'الخط', it: 'Linea', en: 'Linea' },
+  pasta:  { ar: 'الباستا', it: 'Pasta', en: 'Pasta' },
+  amazon: { ar: 'أمازون', it: 'Amazon', en: 'Amazon' },
+};
+
+function OrdersLog({ L, orders, isAdmin, onDelete }) {
+  const sorted = [...orders].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const fmt = (ts) => ts ? new Date(ts).toLocaleString() : '';
+  const srcL = (s) => (SRC_LABEL[s] ? SRC_LABEL[s][L] || SRC_LABEL[s].en : s);
+  return (
+    <div className="card">
+      <p className="smallmuted" style={{ marginTop: 0 }}>
+        {tr(L, 'سجل كل الأوردرات اللي خرجت من المصنع.', 'Registro di tutti gli ordini usciti dalla fabbrica.', 'Log of all orders shipped from the factory.')}
+      </p>
+      {sorted.length === 0 ? (
+        <div className="empty">{tr(L, 'لا يوجد أوردرات بعد', 'Nessun ordine ancora', 'No orders yet')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {sorted.map(o => {
+            const total = (o.items || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
+            return (
+              <div key={o.id} className="card" style={{ margin: 0, padding: '12px 14px', background: 'var(--panel)' }}>
+                <div className="flex-between" style={{ flexWrap: 'wrap', gap: 6 }}>
+                  <div>
+                    <span style={{ fontWeight: 800 }}>🚚 {o.note || tr(L, 'أوردر', 'Ordine', 'Order')}</span>
+                    <span className="smallmuted" style={{ marginInlineStart: 8, fontSize: 12 }}>{fmt(o.ts)} · {o.by || ''}</span>
+                  </div>
+                  {isAdmin && <button className="danger ghost" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => onDelete(o.id)}>🗑️</button>}
+                </div>
+                <table style={{ marginTop: 8 }}>
+                  <tbody>
+                    {(o.items || []).map((it, i) => (
+                      <tr key={i}>
+                        <td><span className="badge" style={{ fontSize: 10 }}>{srcL(it.source)}</span></td>
+                        <td style={{ fontWeight: 600 }}>{it.name}</td>
+                        <td className="mono" style={{ fontWeight: 700, textAlign: 'end' }}>{it.qty} {it.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="smallmuted" style={{ fontSize: 11, marginTop: 4, textAlign: 'end' }}>
+                  {tr(L, 'إجمالي', 'Totale', 'Total')}: {total} {tr(L, 'وحدة', 'pz/bancale', 'units')}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

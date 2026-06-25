@@ -38,6 +38,7 @@ const DEFAULTS = {
   manual: [],        // { id, progType, title, body, image, sizeConfigs:[{size,notes}] }
   approvedDevices: [], // { id, name, ts } — devices allowed to open the system
   pendingDevices: [],  // { id, name, ua, ts } — devices awaiting supervisor approval
+  orders: [],          // { id, ts, note, by, items:[{source,productId,name,qty,unit}] } — shipped orders log
 };
 
 // Firestore document references
@@ -105,6 +106,7 @@ export function StoreProvider({ children }) {
           manual:          d.manual          ?? DEFAULTS.manual,
           approvedDevices: d.approvedDevices ?? DEFAULTS.approvedDevices,
           pendingDevices:  d.pendingDevices  ?? DEFAULTS.pendingDevices,
+          orders:          d.orders          ?? DEFAULTS.orders,
         }));
       }
       markLoaded();
@@ -165,6 +167,7 @@ export function StoreProvider({ children }) {
             manual:          newState.manual,
             approvedDevices: newState.approvedDevices,
             pendingDevices:  newState.pendingDevices,
+            orders:          newState.orders,
           }),
           setDoc(REF_PROGS(db), { programs: newState.programs }),
           setDoc(REF_LOG(db),   { entries: newState.log.slice(-800) }),
@@ -179,7 +182,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   /* ── update() — replaces partial state and triggers save ── */
-  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'lineaFinished', 'pastaFinished', 'amazonFinished', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual', 'approvedDevices', 'pendingDevices']);
+  const DATA_KEYS = new Set(['products', 'covers', 'baskets', 'programs', 'settings', 'managerNotes', 'log', 'companies', 'adminPass', 'workerPass', 'workers', 'pastaStock', 'pastaLiquids', 'pastaBoxes', 'pastaLids', 'cartonTypes', 'lineaFinished', 'pastaFinished', 'amazonFinished', 'attendance', 'breaks', 'warehouses', 'dailyCodes', 'announcements', 'scheduledAlerts', 'manual', 'approvedDevices', 'pendingDevices', 'orders']);
 
   const update = useCallback((partial) => {
     setState(s => {
