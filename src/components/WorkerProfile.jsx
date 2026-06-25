@@ -179,6 +179,7 @@ export default function WorkerProfile() {
                 <th>{tr(L, 'اليوم', 'Giorno', 'Day')}</th>
                 <th>🟢 {tr(L, 'دخول', 'Entrata', 'In')}</th>
                 <th>🔴 {tr(L, 'خروج', 'Uscita', 'Out')}</th>
+                <th>📸 {tr(L, 'الصور', 'Foto', 'Photos')}</th>
                 <th>{tr(L, 'الساعات', 'Ore', 'Hours')}</th>
               </tr>
             </thead>
@@ -186,12 +187,23 @@ export default function WorkerProfile() {
               {records.map(r => {
                 const h = roundedHours(r.clockIn, r.clockOut);
                 const dayIdx = r.date ? new Date(r.date + 'T12:00:00').getDay() : null;
+                const thumb = (src, ring) => (
+                  <img src={src} alt="" onClick={() => setViewingDoc(src)}
+                    style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, border: `2px solid ${ring}`, cursor: 'pointer' }} />
+                );
                 return (
                   <tr key={r.id}>
                     <td className="mono">{r.date}</td>
                     <td className="smallmuted">{dayIdx != null ? (DAYS[L] || DAYS.en)[dayIdx] : '—'}</td>
                     <td className="mono">{fmtTime(r.clockIn)}</td>
                     <td className="mono">{fmtTime(r.clockOut)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {r.clockInPhoto ? thumb(r.clockInPhoto, 'var(--green)') : null}
+                        {r.clockOutPhoto ? thumb(r.clockOutPhoto, 'var(--red)') : null}
+                        {!r.clockInPhoto && !r.clockOutPhoto && <span className="smallmuted">—</span>}
+                      </div>
+                    </td>
                     <td>
                       <span className="mono" style={{ fontWeight: 700, color: h ? 'var(--green)' : 'var(--muted)' }}>
                         {h != null ? `${h.toFixed(1)}h` : '—'}

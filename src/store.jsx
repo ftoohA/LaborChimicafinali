@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { todayStr } from './helpers';
+import { todayStr, purgeOldAttendancePhotos } from './helpers';
 
 const StoreContext = createContext(null);
 
@@ -11,7 +11,7 @@ const DEFAULTS = {
   covers: [],
   baskets: [],
   managerNotes: {},
-  settings: { wasteTicket: 4, wasteCap: 2, wasteJerrican: 1.8, lowStock: 5, wastePastaBox: 2, wastePastaLid: 2, wastePastaSponge: 2, wastePastaSpongeLid: 2, wastePastaLiquid: 2, lowStockPasta: 10 },
+  settings: { wasteTicket: 4, wasteCap: 2, wasteJerrican: 1.8, lowStock: 5, wastePastaBox: 2, wastePastaLid: 2, wastePastaSponge: 2, wastePastaSpongeLid: 2, wastePastaLiquid: 2, lowStockPasta: 10, photoCleanupDay: 10, photoKeepForever: false },
   dailyCodes: {},
   log: [],
   companies: [
@@ -190,6 +190,16 @@ export function StoreProvider({ children }) {
       return next;
     });
   }, [saveToFirestore]);
+
+  /* ── Purge expired attendance selfies once per session (unless kept forever) ── */
+  const purgedRef = useRef(false);
+  useEffect(() => {
+    if (!state.loaded || purgedRef.current) return;
+    purgedRef.current = true;
+    if (state.settings?.photoKeepForever) return;
+    const { changed, attendance } = purgeOldAttendancePhotos(state.attendance, state.settings?.photoCleanupDay ?? 10);
+    if (changed) update({ attendance });
+  }, [state.loaded, state.attendance, state.settings, update]);
 
   /* ── addLog() ── */
   const addLog = useCallback((entry) => {

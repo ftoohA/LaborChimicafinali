@@ -140,6 +140,28 @@ export function productCapacity(p, target, state) {
   return { possible, consumers: cons, shortages };
 }
 
+/* Drop clock-in/out selfies once they pass retention: a photo dated in month M is
+   kept through day `cleanupDay` of month M+1, then stripped (record/times kept).
+   Returns { changed, attendance }. */
+export function purgeOldAttendancePhotos(attendance, cleanupDay = 10) {
+  const now = new Date();
+  const day = Math.max(1, Math.min(28, Number(cleanupDay) || 10));
+  let changed = false;
+  const out = (attendance || []).map(r => {
+    if (!r || (!r.clockInPhoto && !r.clockOutPhoto) || !r.date) return r;
+    const [y, m] = r.date.split('-').map(Number); // m is 1-based; new Date(y,m,…) = next month
+    if (!y || !m) return r;
+    const purgeDate = new Date(y, m, day, 0, 0, 0, 0);
+    if (now >= purgeDate) {
+      changed = true;
+      const { clockInPhoto, clockOutPhoto, ...rest } = r;
+      return rest;
+    }
+    return r;
+  });
+  return { changed, attendance: changed ? out : (attendance || []) };
+}
+
 // Persistent per-device identifier (stored in this browser's localStorage)
 export function getDeviceId() {
   let id = localStorage.getItem('deviceId');

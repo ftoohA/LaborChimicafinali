@@ -149,6 +149,36 @@ export default function Admin() {
         <button className="primary" onClick={saveSettings}>{T.save}</button>
       </div>
 
+      {/* Attendance photo retention */}
+      <div className="card">
+        <h3 style={{ margin: '0 0 6px' }}>📸 {state.lang === 'ar' ? 'حفظ صور الحضور' : state.lang === 'it' ? 'Conservazione foto presenze' : 'Attendance photo retention'}</h3>
+        <p className="smallmuted" style={{ marginTop: 0 }}>
+          {state.lang === 'ar'
+            ? 'صور الدخول/الخروج تتحفظ في ملف العامل طوال الشهر، وتتمسح يوم كذا من الشهر اللي بعده.'
+            : state.lang === 'it'
+              ? "Le foto di entrata/uscita restano nel profilo per tutto il mese e vengono cancellate il giorno indicato del mese successivo."
+              : 'Clock-in/out photos stay in the worker profile for the whole month, deleted on the chosen day of the next month.'}
+        </p>
+        <div className="row" style={{ gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="field" style={{ margin: 0, maxWidth: 240, opacity: settings.photoKeepForever ? 0.5 : 1 }}>
+            <label>{state.lang === 'ar' ? 'يوم المسح (من الشهر التالي)' : state.lang === 'it' ? 'Giorno di cancellazione (mese dopo)' : 'Cleanup day (next month)'}</label>
+            <input type="number" min={1} max={28} value={settings.photoCleanupDay ?? 10}
+              disabled={settings.photoKeepForever}
+              onChange={e => setSetting('photoCleanupDay', Math.max(1, Math.min(28, Number(e.target.value) || 10)))} />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+            <input type="checkbox" checked={!!settings.photoKeepForever} onChange={e => setSetting('photoKeepForever', e.target.checked)} style={{ width: 18, height: 18 }} />
+            {state.lang === 'ar' ? 'لا تمسح الصور نهائياً' : state.lang === 'it' ? 'Non cancellare mai le foto' : 'Never delete photos'}
+          </label>
+        </div>
+        {settings.photoKeepForever && (
+          <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(242,183,5,0.08)', border: '1px solid rgba(242,183,5,0.3)', borderRadius: 6, fontSize: 12, color: 'var(--yellow)' }}>
+            ⚠️ {state.lang === 'ar' ? 'الاحتفاظ بكل الصور للأبد بيستهلك مساحة وموارد أكتر.' : state.lang === 'it' ? 'Conservare tutte le foto per sempre consuma più spazio e risorse.' : 'Keeping all photos forever uses more storage and resources.'}
+          </div>
+        )}
+        <button className="primary" style={{ marginTop: 12 }} onClick={saveSettings}>{T.save}</button>
+      </div>
+
       {/* Companies */}
       <div className="card">
         <div className="flex-between">
