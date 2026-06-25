@@ -101,6 +101,14 @@ export default function Program() {
     });
   };
 
+  /* ---- Is a production item short on materials for its target? ---- */
+  const materialShort = (it, progType) => {
+    if (progType === 'amazon' || it.type || it.prepType === 'liquid') return false;
+    const p = state.products.find(x => x.id === it.productId);
+    if (!p) return false;
+    return productCapacity(p, Number(it.target) || 0, state).shortages.length > 0;
+  };
+
   /* ---- Stock deduction on item confirm ---- */
   const handleConfirm = ({ pi, ii, action, pendingRows }) => {
     const it = allProgs[pi].items[ii];
@@ -112,6 +120,19 @@ export default function Program() {
     const s = state.settings;
     const target = Number(it.target);
     const sign = action === 'done' ? -1 : 1;
+    const progItem = allProgs[pi];
+    const isAmazonItem = progItem && progItem.progType === 'amazon';
+
+    // Block production confirm when materials aren't enough (Amazon pulls from finished stock, so skip)
+    if (action === 'done' && !isAmazonItem) {
+      const cap = productCapacity(p, target, state);
+      if (cap.shortages.length) {
+        const top = [...cap.shortages].sort((a, b) => b.missing - a.missing)[0];
+        toast(`${state.lang === 'ar' ? '⛔ مواد ناقصة' : '⛔ Materiali insufficienti'}: ${top.name} (−${Math.ceil(top.missing).toLocaleString()} ${top.unit})`, true);
+        setConfirmItem(null); setConfirmBancale(null);
+        return;
+      }
+    }
 
     if (p.isPasta) {
       const effectiveBoxId = it.pastaBoxId || p.pastaBoxId;
@@ -286,6 +307,15 @@ export default function Program() {
   };
 
   const handleRowCheck = (pi, ii, rowIdx) => {
+    const pr = allProgs[pi];
+    const it = pr.items[ii];
+    if (materialShort(it, pr.progType)) {
+      const p = state.products.find(x => x.id === it.productId);
+      const cap = productCapacity(p, Number(it.target) || 0, state);
+      const top = [...cap.shortages].sort((a, b) => b.missing - a.missing)[0];
+      toast(`⛔ ${state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insufficienti'}: ${top.name} (−${Math.ceil(top.missing).toLocaleString()} ${top.unit})`, true);
+      return;
+    }
     setConfirmBancale({ pi, ii, rowIdx, action: 'check' });
   };
   const handleRowUncheck = (pi, ii, rowIdx) => {
@@ -382,6 +412,9 @@ export default function Program() {
                                         onClick={() => setViewingProduct(p)} title={state.lang === 'ar' ? 'تفاصيل المنتج' : 'Dettagli prodotto'}>
                                         {p ? p.name : <span style={{ color: 'var(--red)' }}>?</span>}
                                       </div>
+                                      {materialShort(it, pr.progType) && it.status !== 'done' && (
+                                        <div className="badge bad" style={{ fontSize: 9, marginTop: 2 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</div>
+                                      )}
                                       {p && <div className="smallmuted" style={{ fontSize: 10 }}>{p.company} · {p.type} · {p.liter}L</div>}
                                       {p && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
@@ -592,6 +625,9 @@ export default function Program() {
                                         <div style={{ fontWeight: 700, fontSize: 13, cursor: 'pointer', textDecoration: 'underline dotted' }} onClick={() => setViewingProduct(p)}>
                                           {p ? p.name : '?'}
                                         </div>
+                                        {materialShort(it, pr.progType) && !isDone && (
+                                          <div className="badge bad" style={{ fontSize: 9, marginTop: 2 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</div>
+                                        )}
                                         {p && <div className="smallmuted" style={{ fontSize: 10 }}>{p.code}</div>}
                                       </div>
                                     </div>
@@ -793,11 +829,13 @@ export default function Program() {
                     const pBox = p ? (state.pastaBoxes || []).find(x => x.id === (it.pastaBoxId || p?.pastaBoxId)) : null;
                     const pLid = p ? (state.pastaLids || []).find(x => x.id === (it.pastaLidId || p?.pastaLidId)) : null;
                     const displayName = isLiq ? (liq ? `🧪 ${liq.name}` : '?') : (p ? p.name : '?');
+                    const isShort = materialShort(it, pr.progType) && it.status !== 'done';
                     return (
                       <tr key={ii} className={it.status === 'done' ? 'row-done' : 'row-pending'}>
                         <td className="mono smallmuted">{ii + 1}</td>
                         <td>
                           <strong>{displayName}</strong>
+                          {isShort && <span className="badge bad" style={{ marginInlineStart: 6, fontSize: 10 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</span>}
                           {p && <><br /><span className="smallmuted">{p.code}</span></>}
                           {isLiq && <><br /><span className="smallmuted">{it.target}L</span></>}
                         </td>
@@ -807,7 +845,15 @@ export default function Program() {
                         {pr.progType === 'brazer' && (
                           <><td className="smallmuted">{pBox ? pBox.name : '—'}</td><td className="smallmuted">{pLid ? pLid.name : '—'}</td></>
                         )}
-                        <td className="mono" style={{ fontWeight: 700 }}>{isLiq ? `${it.target}L` : (it.target || '—')}</td>
+                        <td className="mono" style={{ fontWeight: 700 }}>
+                          {isLiq
+                            ? `${it.target}L`
+                            : (it.status === 'done'
+                                ? (it.target || '—')
+                                : <input type="number" min={0} defaultValue={it.target} title={state.lang === 'ar' ? 'عدّل الهدف ليتوافق مع الموارد' : "Modifica l'obiettivo per adattarlo alle scorte"}
+                                    style={{ width: 64, padding: '4px 6px', fontWeight: 700 }}
+                                    onBlur={e => updateInlineField(realPi, ii, 'target', Number(e.target.value) || 0)} />)}
+                        </td>
                         <td><input className="row-notes-inp" type="text" defaultValue={it.notes || ''} placeholder="..." onBlur={e => updateInlineField(realPi, ii, 'notes', e.target.value)} /></td>
                         <td style={{ textAlign: 'center' }}>
                           {it.status === 'done' ? (
