@@ -99,12 +99,11 @@ export function productCapacity(p, target, state) {
   // Liquid/material composition (shared by Linea & pasta)
   const litersPerBancale = p.isPasta ? 12 * (Number(p.liter) || 0) : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
   const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
-  (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0).forEach(r => {
+  (p.recipe || []).filter(r => r.warehouseId && Number(r.percent) > 0).forEach(r => {
     const w = (state.warehouses || []).find(x => x.id === r.warehouseId);
-    const itm = w && (w.items || []).find(i => i.id === r.itemId);
     const grossL = (Number(r.percent) / 100) * litersPerBancale * wasteMul;
     const perB = (w?.unit === 'ml' || w?.unit === 'g') ? grossL * 1000 : grossL;
-    add('liquidi', `${itm ? itm.name : r.name}${w ? ` · ${w.name}` : ''}`, perB, itm?.stock || 0, w?.unit || 'L');
+    add('liquidi', w ? w.name : r.name, perB, w?.stock || 0, w?.unit || 'L');
   });
 
   if (!p.isPasta) {

@@ -22,7 +22,6 @@ export default function Warehouses() {
 
   // Custom warehouse state
   const [creating, setCreating] = useState(false);
-  const [addingItem, setAddingItem] = useState(null);
   const [restock, setRestock] = useState(null);
 
   // Built-in add modals
@@ -37,13 +36,12 @@ export default function Warehouses() {
   const warehouses = state.warehouses || [];
   const saveWh = (next) => update({ warehouses: next });
 
-  // Ingredient options for recipes: items from warehouses flagged "used in preparation"
-  const prepOptions = warehouses.filter(w => w.usedInPrep).flatMap(w =>
-    (w.items || []).map(it => ({ warehouseId: w.id, itemId: it.id, name: it.name, whName: w.name, unit: w.unit })));
+  // Recipe ingredient options = non-piece warehouses (liquids/solids used in preparation)
+  const prepOptions = warehouses.filter(w => w.unit !== 'piece').map(w => ({ warehouseId: w.id, name: w.name, unit: w.unit }));
 
-  const createWarehouse = (name, unit, usedInPrep) => {
-    saveWh([...warehouses, { id: uid(), name, unit, usedInPrep: !!usedInPrep, items: [] }]);
-    addLog({ type: 'warehouse_created', name, by: state.role });
+  const createWarehouse = (data) => {
+    saveWh([...warehouses, { id: uid(), name: data.name, unit: data.unit, stock: Number(data.stock) || 0, lowStock: Number(data.lowStock) || 0, notes: data.notes || '' }]);
+    addLog({ type: 'warehouse_created', name: data.name, by: state.role });
     toast(T.success_added);
     setCreating(false);
   };
@@ -52,22 +50,10 @@ export default function Warehouses() {
     saveWh(warehouses.filter(w => w.id !== wh.id));
     toast(T.deleted);
   };
-  const addItem = (whId, item) => {
-    saveWh(warehouses.map(w => w.id !== whId ? w : { ...w, items: [...(w.items || []), item] }));
-    addLog({ type: 'warehouse_item_added', name: item.name, by: state.role });
-    toast(T.success_added);
-    setAddingItem(null);
-  };
-  const deleteItem = async (whId, item) => {
-    if (!(await askDelete(item.name))) return;
-    saveWh(warehouses.map(w => w.id !== whId ? w : { ...w, items: (w.items || []).filter(i => i.id !== item.id) }));
-    toast(T.deleted);
-  };
-  const restockItem = (whId, itemId, qty, reason) => {
-    const wh = warehouses.find(w => w.id === whId);
-    const item = wh?.items.find(i => i.id === itemId);
-    saveWh(warehouses.map(w => w.id !== whId ? w : { ...w, items: w.items.map(i => i.id !== itemId ? i : { ...i, stock: (i.stock || 0) + qty }) }));
-    addLog({ type: 'warehouse_stock_add', warehouse: wh?.name, name: item?.name, qty, reason, by: state.role });
+  const restockWarehouse = (id, qty, reason) => {
+    const wh = warehouses.find(w => w.id === id);
+    saveWh(warehouses.map(w => w.id !== id ? w : { ...w, stock: (w.stock || 0) + qty }));
+    addLog({ type: 'warehouse_stock_add', name: wh?.name, qty, reason, by: state.role });
     toast(T.success_added);
     setRestock(null);
   };
@@ -174,36 +160,37 @@ export default function Warehouses() {
         </button>
       )}
 
-      {/* Custom warehouses */}
+      {/* Custom warehouses — each warehouse IS one material (single stock) */}
       {warehouses.map(wh => {
-        const low = (it) => (it.lowStock || 0) > 0 && (it.stock || 0) <= it.lowStock;
+        const low = (wh.lowStock || 0) > 0 && (wh.stock || 0) <= wh.lowStock;
+        const isPrep = wh.unit !== 'piece';
         return (
           <div className="card" key={wh.id}>
-            <div className="flex-between">
-              <h3 style={{ margin: 0 }}>📦 {wh.name} <span className="smallmuted" style={{ fontSize: 12 }}>· {unitLabel(L, wh.unit)}</span>
-                {wh.usedInPrep && <span className="badge ok" style={{ marginInlineStart: 8, fontSize: 10 }}>🧪 {tr(L, 'تحضير', 'Prep.', 'Prep')}</span>}
-              </h3>
-              {isAdmin && (
-                <div className="row" style={{ gap: 6 }}>
-                  <button onClick={() => setAddingItem(wh.id)}>+ {tr(L, 'صنف', 'Articolo', 'Item')}</button>
-                  <button className="danger ghost" style={{ fontSize: 12 }} onClick={() => deleteWarehouse(wh)}>🗑️</button>
+            <div className="flex-between" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  {isPrep ? '🧪' : '📦'} {wh.name}
+                  <span className="smallmuted" style={{ fontSize: 12 }}> · {unitLabel(L, wh.unit)}</span>
+                  <span className="badge ok" style={{ marginInlineStart: 8, fontSize: 10 }}>
+                    {isPrep ? tr(L, 'تحضير المنتج', 'Preparazione', 'Prep') : tr(L, 'برنامج', 'Programma', 'Program')}
+                  </span>
+                </h3>
+                {wh.notes && <div className="smallmuted" style={{ fontSize: 12, marginTop: 4, whiteSpace: 'pre-wrap' }}>{wh.notes}</div>}
+              </div>
+              <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+                <div style={{ textAlign: 'end' }}>
+                  <span className="mono" style={{ fontWeight: 800, fontSize: 18, color: low ? 'var(--red)' : 'var(--green)' }}>{(wh.stock || 0).toLocaleString()}</span>
+                  <span className="smallmuted" style={{ marginInlineStart: 4 }}>{unitLabel(L, wh.unit)}</span>
+                  {low && <span className="badge bad" style={{ marginInlineStart: 6 }}>⚠️ {tr(L, 'منخفض', 'Basso', 'Low')}</span>}
                 </div>
-              )}
+                {isAdmin && (
+                  <>
+                    <button onClick={() => setRestock({ whId: wh.id, name: wh.name, unit: wh.unit })}>+ {tr(L, 'تعبئة', 'Rifornisci', 'Restock')}</button>
+                    <button className="danger ghost" style={{ fontSize: 12 }} onClick={() => deleteWarehouse(wh)}>🗑️</button>
+                  </>
+                )}
+              </div>
             </div>
-            {(wh.items || []).length === 0 ? (
-              <div className="empty">{tr(L, 'لا توجد أصناف', 'Nessun articolo', 'No items')}</div>
-            ) : (
-              <table style={{ marginTop: 12 }}>
-                <thead><tr><th>{tr(L, 'الصنف', 'Articolo', 'Item')}</th><th>{tr(L, 'المخزون', 'Giacenza', 'Stock')}</th>{isAdmin && <th>{T.actions}</th>}</tr></thead>
-                <tbody>
-                  {wh.items.map(it => (
-                    <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={low(it)} unit={wh.unit}
-                      onRestock={() => setRestock({ whId: wh.id, itemId: it.id, name: it.name, unit: wh.unit })}
-                      onDelete={() => deleteItem(wh.id, it)} />
-                  ))}
-                </tbody>
-              </table>
-            )}
           </div>
         );
       })}
@@ -254,7 +241,6 @@ export default function Warehouses() {
 
       {/* Modals */}
       {creating && <CreateWarehouseModal L={L} T={T} onClose={() => setCreating(false)} onSave={createWarehouse} />}
-      {addingItem && <WhItemModal L={L} T={T} onClose={() => setAddingItem(null)} onSave={(item) => addItem(addingItem, item)} />}
 
       {addingCarton && <CartonModal L={L} T={T} onClose={() => setAddingCarton(false)}
         onSave={c => { update({ cartonTypes: [...(state.cartonTypes || []), c] }); addLog({ type: 'carton_added', name: c.name, by: state.role }); toast(T.success_added); setAddingCarton(false); }} />}
@@ -295,7 +281,7 @@ export default function Warehouses() {
               addLog({ type: 'pasta_stock_add', material: restock.spongeField, qty, reason, by: state.role });
               toast(T.success_added); setRestock(null);
             } else if (restock.builtinKey) restockBuiltin(restock.builtinKey, restock.itemId, qty, reason);
-            else restockItem(restock.whId, restock.itemId, qty, reason);
+            else restockWarehouse(restock.whId, qty, reason);
           }} />
       )}
     </>
@@ -305,59 +291,50 @@ export default function Warehouses() {
 function CreateWarehouseModal({ L, T, onClose, onSave }) {
   const toast = useToast();
   const [name, setName] = useState('');
-  const [unit, setUnit] = useState('piece');
-  const [usedInPrep, setUsedInPrep] = useState(false);
+  const [unit, setUnit] = useState('liter');
+  const [stock, setStock] = useState(0);
+  const [lowStock, setLowStock] = useState(0);
+  const [notes, setNotes] = useState('');
+  const isPrep = unit !== 'piece';
+  const ulbl = UNIT_LABELS[unit] || unit;
+
   return (
-    <Modal onClose={onClose} maxWidth={420}>
+    <Modal onClose={onClose} maxWidth={440}>
       <h3>📦 {tr(L, 'إضافة مخزن جديد', 'Nuovo magazzino', 'New Warehouse')}</h3>
       <div className="field">
-        <label>{tr(L, 'اسم المخزن', 'Nome magazzino', 'Warehouse name')}</label>
-        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={tr(L, 'مثال: مواد خام', 'es: Materie prime', 'e.g. Raw materials')} />
+        <label>{tr(L, 'اسم المادة / المخزن', 'Nome materiale / magazzino', 'Material / warehouse name')}</label>
+        <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={tr(L, 'مثال: ماء، ملح...', 'es: Acqua, Sale...', 'e.g. Water, Salt...')} />
       </div>
       <div className="field">
-        <label>{tr(L, 'وحدة التعامل', 'Unità di misura', 'Unit')}</label>
+        <label>{tr(L, 'الوحدة', 'Unità', 'Unit')}</label>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {[['liter', tr(L, 'لتر', 'Litri', 'Liters')], ['ml', tr(L, 'ملي لتر', 'Millilitri', 'ml')], ['kg', tr(L, 'كيلو', 'Kg', 'kg')], ['g', tr(L, 'جرام', 'Grammi', 'g')], ['piece', tr(L, 'قطعة', 'Pezzi', 'Pieces')], ['carton', tr(L, 'كرتونة', 'Cartoni', 'Cartons')]].map(([u, lbl]) => (
+          {[['liter', tr(L, 'لتر', 'Litri', 'Liters')], ['ml', tr(L, 'ملي لتر', 'Millilitri', 'ml')], ['kg', tr(L, 'كيلو', 'Kg', 'kg')], ['g', tr(L, 'جرام', 'Grammi', 'g')], ['piece', tr(L, 'قطعة', 'Pezzi', 'Pieces')]].map(([u, lbl]) => (
             <button key={u} className={unit === u ? 'primary' : 'ghost'} style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => setUnit(u)}>{lbl}</button>
           ))}
         </div>
+        <div className="smallmuted" style={{ fontSize: 11, marginTop: 6 }}>
+          {isPrep
+            ? tr(L, '🧪 مادة تحضير — هتظهر كمكوّن لما تعمل منتج', '🧪 Materiale di preparazione — apparirà come ingrediente nei prodotti', '🧪 Prep material — appears as a product ingredient')
+            : tr(L, '📦 مادة برنامج — هتستخدمها وانت بتعمل برنامج (زي الكرتون/الغطاية)', '📦 Materiale di programma — usato nei programmi (come cartoni/coperchi)', '📦 Program material — used in programs (like cartons/covers)')}
+        </div>
       </div>
-      {/* Is this warehouse a source of ingredients for product preparation? */}
+      <div className="grid cols-2">
+        <div className="field">
+          <label>{tr(L, 'الكمية الحالية', 'Giacenza iniziale', 'Current stock')} ({ulbl})</label>
+          <input type="number" step="any" value={stock} onChange={e => setStock(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>{tr(L, 'حد التحذير', 'Soglia avviso', 'Low-stock')} ({ulbl})</label>
+          <input type="number" step="any" value={lowStock} onChange={e => setLowStock(e.target.value)} />
+        </div>
+      </div>
       <div className="field">
-        <label>{tr(L, 'استخدام المخزن', 'Uso del magazzino', 'Warehouse use')}</label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 400 }}>
-          <input type="checkbox" checked={usedInPrep} onChange={e => setUsedInPrep(e.target.checked)} style={{ width: 18, height: 18 }} />
-          {tr(L,
-            'مواد تُستخدم في تحضير المنتجات (تظهر كمكوّنات في الوصفات)',
-            'Materiali usati nella preparazione (appaiono come ingredienti nelle ricette)',
-            'Materials used in product preparation (shown as recipe ingredients)')}
-        </label>
+        <label>{tr(L, 'معلومات (اختياري)', 'Note (opzionale)', 'Info (optional)')}</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ minHeight: 50 }} placeholder={tr(L, 'مصدر، تركيز، ملاحظات...', 'Fornitore, concentrazione, note...', 'Supplier, concentration, notes...')} />
       </div>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
-        <button className="primary" onClick={() => { if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; } onSave(name.trim(), unit, usedInPrep); }}>{T.save}</button>
-      </div>
-    </Modal>
-  );
-}
-
-function WhItemModal({ L, T, onClose, onSave }) {
-  const toast = useToast();
-  const [f, setF] = useState({ name: '', size: '', stock: 0, lowStock: 0, waste: 0 });
-  const set = (k, v) => setF(x => ({ ...x, [k]: v }));
-  return (
-    <Modal onClose={onClose} maxWidth={420}>
-      <h3>+ {tr(L, 'إضافة صنف', 'Aggiungi articolo', 'Add Item')}</h3>
-      <div className="grid cols-2">
-        <div className="field"><label>{tr(L, 'الاسم', 'Nome', 'Name')}</label><input autoFocus value={f.name} onChange={e => set('name', e.target.value)} /></div>
-        <div className="field"><label>{tr(L, 'الحجم', 'Misura', 'Size')}</label><input value={f.size} onChange={e => set('size', e.target.value)} placeholder="1L / 5kg ..." /></div>
-        <div className="field"><label>{tr(L, 'المخزون الابتدائي', 'Stock iniziale', 'Initial stock')}</label><input type="number" value={f.stock} onChange={e => set('stock', e.target.value)} /></div>
-        <div className="field"><label>{tr(L, 'هادر %', 'Scarto %', 'Waste %')}</label><input type="number" value={f.waste} onChange={e => set('waste', e.target.value)} /></div>
-        <div className="field"><label>{tr(L, 'حد التحذير', 'Soglia avviso', 'Low-stock')}</label><input type="number" value={f.lowStock} onChange={e => set('lowStock', e.target.value)} /></div>
-      </div>
-      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-        <button onClick={onClose}>{T.cancel}</button>
-        <button className="primary" onClick={() => { if (!f.name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; } onSave({ id: uid(), name: f.name.trim(), size: f.size.trim(), stock: Number(f.stock) || 0, lowStock: Number(f.lowStock) || 0, waste: Number(f.waste) || 0 }); }}>{T.save}</button>
+        <button className="primary" onClick={() => { if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; } onSave({ name: name.trim(), unit, stock, lowStock, notes: notes.trim() }); }}>{T.save}</button>
       </div>
     </Modal>
   );
@@ -480,22 +457,22 @@ function PastaLiquidModal({ L, T, existing, prepOptions = [], onClose, onSave })
   const [name, setName] = useState(existing?.name || '');
   const [stock, setStock] = useState(existing?.stock ?? 0);
   const [prepNotes, setPrepNotes] = useState(existing?.prepNotes || '');
-  const [recipe, setRecipe] = useState((existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name, ratio: r.ratio, warehouseId: r.warehouseId || '', itemId: r.itemId || '' })));
+  const [recipe, setRecipe] = useState((existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name, ratio: r.ratio, warehouseId: r.warehouseId || '' })));
 
-  const addIng = () => setRecipe(r => [...r, { id: uid(), name: '', ratio: '', warehouseId: '', itemId: '' }]);
+  const addIng = () => setRecipe(r => [...r, { id: uid(), name: '', ratio: '', warehouseId: '' }]);
   const updIng = (id, f, v) => setRecipe(r => r.map(x => x.id === id ? { ...x, [f]: v } : x));
   const remIng = (id) => setRecipe(r => r.filter(x => x.id !== id));
-  // Pick a warehouse item as ingredient (or '' for manual free text)
+  // Pick a warehouse as ingredient (or '' for manual free text)
   const pickSource = (id, key) => {
-    const opt = prepOptions.find(o => `${o.warehouseId}:${o.itemId}` === key);
+    const opt = prepOptions.find(o => o.warehouseId === key);
     setRecipe(r => r.map(x => x.id !== id ? x : opt
-      ? { ...x, warehouseId: opt.warehouseId, itemId: opt.itemId, name: opt.name }
-      : { ...x, warehouseId: '', itemId: '' }));
+      ? { ...x, warehouseId: opt.warehouseId, name: opt.name }
+      : { ...x, warehouseId: '' }));
   };
 
   const handleSave = () => {
     if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; }
-    onSave({ id: existing?.id || uid(), name: name.trim(), stock: existing ? (existing.stock || 0) : (Number(stock) || 0), prepNotes: prepNotes.trim(), recipe: recipe.filter(r => r.name.trim() && Number(r.ratio) > 0).map(r => ({ id: r.id, name: r.name.trim(), ratio: Number(r.ratio), warehouseId: r.warehouseId || '', itemId: r.itemId || '' })) });
+    onSave({ id: existing?.id || uid(), name: name.trim(), stock: existing ? (existing.stock || 0) : (Number(stock) || 0), prepNotes: prepNotes.trim(), recipe: recipe.filter(r => r.name.trim() && Number(r.ratio) > 0).map(r => ({ id: r.id, name: r.name.trim(), ratio: Number(r.ratio), warehouseId: r.warehouseId || '' })) });
   };
 
   return (
@@ -517,13 +494,13 @@ function PastaLiquidModal({ L, T, existing, prepOptions = [], onClose, onSave })
         </p>
       )}
       {recipe.map((ing, idx) => {
-        const curKey = ing.warehouseId && ing.itemId ? `${ing.warehouseId}:${ing.itemId}` : '';
+        const curKey = ing.warehouseId || '';
         return (
         <div key={ing.id || idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
           {prepOptions.length > 0 && (
             <select className="input-sm" style={{ flex: 1, minWidth: 120 }} value={curKey} onChange={e => pickSource(ing.id, e.target.value)}>
               <option value="">{tr(L, '✏️ يدوي', '✏️ Manuale', '✏️ Manual')}</option>
-              {prepOptions.map(o => <option key={`${o.warehouseId}:${o.itemId}`} value={`${o.warehouseId}:${o.itemId}`}>{o.name} · {o.whName}</option>)}
+              {prepOptions.map(o => <option key={o.warehouseId} value={o.warehouseId}>{o.name}</option>)}
             </select>
           )}
           <input className="input-sm" style={{ flex: 2, minWidth: 110 }} placeholder={tr(L, 'اسم المكون', 'Nome ingrediente', 'Ingredient')} value={ing.name} onChange={e => updIng(ing.id, 'name', e.target.value)} disabled={!!curKey} />

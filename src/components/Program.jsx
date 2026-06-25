@@ -85,21 +85,17 @@ export default function Program() {
      Per ingredient = percent% × base × target × (1 + scarto%), in the warehouse's unit
      (ml/g use the ×1000 scale; liter/kg stay as-is, density ≈ 1). */
   const consumeRecipe = (p, target, sign) => {
-    const recipe = (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0);
+    const recipe = (p.recipe || []).filter(r => r.warehouseId && Number(r.percent) > 0);
     if (!recipe.length) return state.warehouses || [];
     const litersPerBancale = p.isPasta ? 12 * (Number(p.liter) || 0) : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
     const baseLiters = litersPerBancale * target;
     const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
     return (state.warehouses || []).map(w => {
-      const ings = recipe.filter(r => r.warehouseId === w.id);
-      if (!ings.length) return w;
-      return { ...w, items: (w.items || []).map(itm => {
-        const ing = ings.find(r => r.itemId === itm.id);
-        if (!ing) return itm;
-        const gross = (Number(ing.percent) / 100) * baseLiters * wasteMul;
-        const amount = (w.unit === 'ml' || w.unit === 'g') ? gross * 1000 : gross;
-        return { ...itm, stock: Math.max(0, (itm.stock || 0) + sign * amount) };
-      }) };
+      const ing = recipe.find(r => r.warehouseId === w.id);
+      if (!ing) return w;
+      const gross = (Number(ing.percent) / 100) * baseLiters * wasteMul;
+      const amount = (w.unit === 'ml' || w.unit === 'g') ? gross * 1000 : gross;
+      return { ...w, stock: Math.max(0, (w.stock || 0) + sign * amount) };
     });
   };
 
@@ -234,17 +230,13 @@ export default function Program() {
 
     // Consume recipe ingredients linked to prep warehouses (done → deduct, undo → add back)
     const whSign = action === 'done' ? -1 : 1;
-    const linked = (liq.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.ratio) > 0);
+    const linked = (liq.recipe || []).filter(r => r.warehouseId && Number(r.ratio) > 0);
     let updatedWarehouses = state.warehouses || [];
     if (linked.length) {
       updatedWarehouses = updatedWarehouses.map(w => {
-        const ings = linked.filter(r => r.warehouseId === w.id);
-        if (!ings.length) return w;
-        return { ...w, items: (w.items || []).map(itm => {
-          const ing = ings.find(r => r.itemId === itm.id);
-          if (!ing) return itm;
-          return { ...itm, stock: Math.max(0, (itm.stock || 0) + whSign * Number(ing.ratio) * liters) };
-        }) };
+        const ing = linked.find(r => r.warehouseId === w.id);
+        if (!ing) return w;
+        return { ...w, stock: Math.max(0, (w.stock || 0) + whSign * Number(ing.ratio) * liters) };
       });
     }
 
@@ -273,13 +265,12 @@ export default function Program() {
     const it = allProgs[pi].items[ii];
     const sign = action === 'done' ? -1 : 1;
     const updatedWarehouses = (state.warehouses || []).map(w =>
-      w.id !== it.warehouseId ? w :
-      { ...w, items: (w.items || []).map(i => i.id !== it.itemId ? i : { ...i, stock: Math.max(0, (i.stock || 0) + sign * it.target) }) }
+      w.id !== it.warehouseId ? w : { ...w, stock: Math.max(0, (w.stock || 0) + sign * it.target) }
     );
     const rowsUpdate = action === 'done' ? { status: 'done', rows: [{ done: true }] } : { status: 'pending', rows: [{ done: false }] };
     const newProgs = updateProgramItem(state.programs, date, pi, ii, rowsUpdate);
     update({ programs: newProgs, warehouses: updatedWarehouses });
-    addLog({ type: action === 'done' ? 'custom_material_used' : 'custom_material_undo', warehouseId: it.warehouseId, itemId: it.itemId, qty: it.target, date, by: state.role });
+    addLog({ type: action === 'done' ? 'custom_material_used' : 'custom_material_undo', warehouseId: it.warehouseId, qty: it.target, date, by: state.role });
     toast(action === 'done' ? T.success_done : T.success_undo);
     setConfirmItem(null);
   };
@@ -540,10 +531,8 @@ export default function Program() {
                                 qtyLabel = `${it.target} ${state.lang === 'ar' ? 'لتر' : 'L'}`;
                               } else if (isCustom) {
                                 const wh = (state.warehouses || []).find(w => w.id === it.warehouseId);
-                                const whItem = (wh?.items || []).find(i => i.id === it.itemId);
-                                name = `📦 ${whItem?.name || '?'}`;
-                                sub = wh?.name || '';
-                                const u = wh?.unit === 'liter' ? 'L' : wh?.unit === 'carton' ? (state.lang === 'ar' ? 'كرتونة' : 'cart.') : (state.lang === 'ar' ? 'قطعة' : 'pz');
+                                name = `📦 ${wh?.name || '?'}`;
+                                const u = wh?.unit === 'liter' ? 'L' : wh?.unit === 'ml' ? 'ml' : wh?.unit === 'kg' ? 'kg' : wh?.unit === 'g' ? 'g' : (state.lang === 'ar' ? 'قطعة' : 'pz');
                                 qtyLabel = `${it.target} ${u}`;
                               } else {
                                 const p = state.products.find(x => x.id === it.productId);
@@ -829,15 +818,13 @@ export default function Program() {
                     const isCustom = it.type === 'custom_material';
                     if (isCustom) {
                       const wh = (state.warehouses || []).find(w => w.id === it.warehouseId);
-                      const whItem = (wh?.items || []).find(i => i.id === it.itemId);
-                      const unitLbl = wh?.unit === 'liter' ? 'L' : wh?.unit === 'carton' ? (state.lang === 'ar' ? 'كرتونة' : 'cart.') : (state.lang === 'ar' ? 'قطعة' : 'pz');
+                      const unitLbl = wh?.unit === 'liter' ? 'L' : wh?.unit === 'ml' ? 'ml' : wh?.unit === 'kg' ? 'kg' : wh?.unit === 'g' ? 'g' : (state.lang === 'ar' ? 'قطعة' : 'pz');
                       const nameColSpan = pr.progType !== 'amazon' ? 3 : 1;
                       return (
                         <tr key={ii} className={it.status === 'done' ? 'row-done' : 'row-pending'} style={{ background: 'rgba(100,120,200,0.06)' }}>
                           <td className="mono smallmuted">{ii + 1}</td>
                           <td colSpan={nameColSpan}>
-                            <strong>📦 {whItem?.name || '?'}</strong>
-                            <br /><span className="smallmuted" style={{ fontSize: 11 }}>{wh?.name}</span>
+                            <strong>📦 {wh?.name || '?'}</strong>
                           </td>
                           <td className="mono" style={{ fontWeight: 700 }}>{it.target} {unitLbl}</td>
                           <td><input className="row-notes-inp" type="text" defaultValue={it.notes || ''} placeholder="..." onBlur={e => updateInlineField(realPi, ii, 'notes', e.target.value)} /></td>
@@ -919,7 +906,7 @@ export default function Program() {
             if (it.prepType === 'liquid' || it.type === 'custom_material') return;
             const p = state.products.find(x => x.id === it.productId);
             if (!p) return;
-            const recipe = (p.recipe || []).filter(r => r.warehouseId && r.itemId && Number(r.percent) > 0);
+            const recipe = (p.recipe || []).filter(r => r.warehouseId && Number(r.percent) > 0);
             if (!recipe.length) return;
             const target = Number(it.target) || 0;
             const litersPerBancale = p.isPasta ? 12 * (Number(p.liter) || 0) : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
@@ -928,10 +915,9 @@ export default function Program() {
             const UNIT_LBL = { liter: 'L', ml: 'ml', kg: 'kg', g: 'g', carton: 'cart.', piece: 'pz' };
             const ingredients = recipe.map(r => {
               const w = (state.warehouses || []).find(x => x.id === r.warehouseId);
-              const itm = w && (w.items || []).find(i => i.id === r.itemId);
               const grossL = (Number(r.percent) / 100) * base * wasteMul;
               const amount = (w?.unit === 'ml' || w?.unit === 'g') ? grossL * 1000 : grossL;
-              return { name: itm ? itm.name : r.name, warehouse: w?.name || '', unit: UNIT_LBL[w?.unit] || w?.unit || 'L', percent: Number(r.percent), amount };
+              return { name: w ? w.name : r.name, warehouse: w?.name || '', unit: UNIT_LBL[w?.unit] || w?.unit || 'L', percent: Number(r.percent), amount };
             });
             preps.push({ id: uid(), type: 'prep_instruction', productId: p.id, productName: p.name, target, totalLiters: base, ingredients, notes: '', status: 'pending', rows: [{ done: false }] });
           });
@@ -993,7 +979,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
   const emptyRow = () => ({ id: uid(), productId: '', pastaLiquidId: '', coverId: '', basketId: '', pastaBoxId: '', pastaLidId: '', target: '', notes: '' });
   const [rows, setRows] = useState([emptyRow()]);
   const [customRows, setCustomRows] = useState([]);
-  const emptyCustomRow = () => ({ id: uid(), warehouseId: '', itemId: '', target: '', notes: '' });
+  const emptyCustomRow = () => ({ id: uid(), warehouseId: '', target: '', notes: '' });
   const addCustomRow = () => setCustomRows(r => [...r, emptyCustomRow()]);
   const removeCustomRow = (id) => setCustomRows(r => r.filter(x => x.id !== id));
   const setCRow = (id, field, value) => setCustomRows(r => r.map(x => x.id !== id ? x : { ...x, [field]: value }));
@@ -1028,10 +1014,10 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
       }));
     }
     const customItems = customRows
-      .filter(r => r.warehouseId && r.itemId && Number(r.target) > 0)
+      .filter(r => r.warehouseId && Number(r.target) > 0)
       .map(r => {
         const wh = (state.warehouses || []).find(w => w.id === r.warehouseId);
-        return { type: 'custom_material', warehouseId: r.warehouseId, itemId: r.itemId, target: Number(r.target), unit: wh?.unit || 'piece', notes: r.notes || '', status: 'pending' };
+        return { type: 'custom_material', warehouseId: r.warehouseId, target: Number(r.target), unit: wh?.unit || 'piece', notes: r.notes || '', status: 'pending' };
       });
     if (!items.length && !customItems.length) { toast('—', true); return; }
     // Liquid pasta items belong to Chimico (location), not Pasta (brazer)
@@ -1195,7 +1181,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
       })()}
 
       {/* Custom warehouse materials — only when producing (not in liquid prep) */}
-      {!isLiquidPrep && (state.warehouses || []).length > 0 && (
+      {!isLiquidPrep && (state.warehouses || []).some(w => w.unit === 'piece') && (
         <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 13 }}>
@@ -1207,20 +1193,16 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
           </div>
           {customRows.map(row => {
             const wh = (state.warehouses || []).find(w => w.id === row.warehouseId);
-            const unitLbl = wh?.unit === 'liter' ? 'L' : wh?.unit === 'carton' ? (state.lang === 'ar' ? 'كرتونة' : 'cart.') : (state.lang === 'ar' ? 'قطعة' : 'pz');
+            const unitLbl = state.lang === 'ar' ? 'قطعة' : 'pz';
+            const pieceWh = (state.warehouses || []).filter(w => w.unit === 'piece');
             return (
               <div key={row.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-                <select className="input-sm" style={{ flex: 2, minWidth: 120 }} value={row.warehouseId}
-                  onChange={e => { setCRow(row.id, 'warehouseId', e.target.value); setCRow(row.id, 'itemId', ''); }}>
+                <select className="input-sm" style={{ flex: 2, minWidth: 150 }} value={row.warehouseId}
+                  onChange={e => setCRow(row.id, 'warehouseId', e.target.value)}>
                   <option value="">{state.lang === 'ar' ? 'المخزن' : state.lang === 'it' ? 'Magazzino' : 'Warehouse'}</option>
-                  {(state.warehouses || []).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {pieceWh.map(w => <option key={w.id} value={w.id}>{w.name} ({w.stock || 0} {unitLbl})</option>)}
                 </select>
-                <select className="input-sm" style={{ flex: 2, minWidth: 120 }} value={row.itemId} disabled={!row.warehouseId}
-                  onChange={e => setCRow(row.id, 'itemId', e.target.value)}>
-                  <option value="">{state.lang === 'ar' ? 'الصنف' : state.lang === 'it' ? 'Articolo' : 'Item'}</option>
-                  {(wh?.items || []).map(it => <option key={it.id} value={it.id}>{it.name} ({it.stock || 0} {unitLbl})</option>)}
-                </select>
-                <input className="input-sm" type="number" style={{ width: 72 }} placeholder={unitLbl}
+                <input className="input-sm" type="number" style={{ width: 80 }} placeholder={unitLbl}
                   value={row.target} onChange={e => setCRow(row.id, 'target', e.target.value)} />
                 <button className="ghost" style={{ color: 'var(--red)', padding: '4px 8px' }} onClick={() => removeCustomRow(row.id)}>✕</button>
               </div>
@@ -1344,8 +1326,7 @@ function ConfirmCodeModal({ item, action, T, dailyCode, products, pastaLiquids, 
   const displayName = isCustom
     ? (() => {
         const wh = (warehouses || []).find(w => w.id === item.warehouseId);
-        const it = (wh?.items || []).find(i => i.id === item.itemId);
-        return it ? `📦 ${it.name}` : '?';
+        return wh ? `📦 ${wh.name}` : '?';
       })()
     : isLiq ? (liq ? liq.name : '?') : (p ? p.name : '?');
 

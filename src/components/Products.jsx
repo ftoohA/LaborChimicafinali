@@ -149,12 +149,12 @@ export default function Products() {
 }
 
 function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave, pastaLiquids, pastaBoxes = [], pastaLids = [], cartonTypes = [], warehouses = [] }) {
-  // Ingredient options from prep warehouses (liquids in L/ml, powders in kg/g)
+  // Ingredient options = non-piece warehouses (liquids in L/ml, powders in kg/g)
   const PREP_UNITS = ['liter', 'ml', 'kg', 'g'];
   const UNIT_LBL = { liter: 'L', ml: 'ml', kg: 'kg', g: 'g', carton: 'cart.', piece: 'pz' };
   const prepOptions = warehouses
-    .filter(w => w.usedInPrep || PREP_UNITS.includes(w.unit))
-    .flatMap(w => (w.items || []).map(it => ({ warehouseId: w.id, itemId: it.id, name: it.name, whName: w.name, unit: w.unit })));
+    .filter(w => PREP_UNITS.includes(w.unit))
+    .map(w => ({ warehouseId: w.id, name: w.name, unit: w.unit }));
   const [form, setForm] = useState({
     company: existing?.company || '',
     type: existing?.type || '',
@@ -186,11 +186,11 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const [recipe, setRecipe] = useState(
-    (existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name || '', percent: r.percent ?? '', warehouseId: r.warehouseId || '', itemId: r.itemId || '', unit: r.unit || '' }))
+    (existing?.recipe || []).map(r => ({ id: r.id || uid(), name: r.name || '', percent: r.percent ?? '', warehouseId: r.warehouseId || '', unit: r.unit || '' }))
   );
 
   const addRecipeIngredient = () => {
-    setRecipe(r => [...r, { id: uid(), name: '', percent: '', warehouseId: '', itemId: '', unit: '' }]);
+    setRecipe(r => [...r, { id: uid(), name: '', percent: '', warehouseId: '', unit: '' }]);
   };
 
   const updateRecipeIngredient = (id, field, value) => {
@@ -198,10 +198,10 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
   };
 
   const pickRecipeSource = (id, key) => {
-    const opt = prepOptions.find(o => `${o.warehouseId}:${o.itemId}` === key);
+    const opt = prepOptions.find(o => o.warehouseId === key);
     setRecipe(r => r.map(x => x.id !== id ? x : opt
-      ? { ...x, warehouseId: opt.warehouseId, itemId: opt.itemId, name: opt.name, unit: opt.unit }
-      : { ...x, warehouseId: '', itemId: '', unit: '' }));
+      ? { ...x, warehouseId: opt.warehouseId, name: opt.name, unit: opt.unit }
+      : { ...x, warehouseId: '', unit: '' }));
   };
 
   const removeRecipeIngredient = (id) => {
@@ -249,7 +249,6 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
         name: r.name.trim(),
         percent: Number(r.percent) || 0,
         warehouseId: r.warehouseId || '',
-        itemId: r.itemId || '',
         unit: r.unit || '',
       }));
 
@@ -519,13 +518,13 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
               {recipe.map((ing) => {
-                const curKey = ing.warehouseId && ing.itemId ? `${ing.warehouseId}:${ing.itemId}` : '';
+                const curKey = ing.warehouseId || '';
                 return (
                 <div key={ing.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   {prepOptions.length > 0 && (
                     <select className="input-sm" style={{ flex: 1, minWidth: 120 }} value={curKey} onChange={e => pickRecipeSource(ing.id, e.target.value)}>
                       <option value="">✏️ Manuale</option>
-                      {prepOptions.map(o => <option key={`${o.warehouseId}:${o.itemId}`} value={`${o.warehouseId}:${o.itemId}`}>{o.name} · {o.whName}</option>)}
+                      {prepOptions.map(o => <option key={o.warehouseId} value={o.warehouseId}>{o.name} ({UNIT_LBL[o.unit] || o.unit})</option>)}
                     </select>
                   )}
                   <input
