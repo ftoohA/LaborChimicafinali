@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
 import { uid } from '../helpers';
+import { exportFinishedExcel } from '../exportExcel';
 import Modal from './Modal';
 
 const tr = (L, ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
@@ -118,6 +119,7 @@ export default function FinishedProducts() {
         </h2>
         {isAdmin && (
           <div className="row" style={{ gap: 8 }}>
+            <button onClick={() => exportFinishedExcel(state)}>⬇️ Excel</button>
             <button className="primary" style={{ background: 'var(--brand)' }} onClick={() => setModal('combined_order')}>
               🚚 {tr(L, 'أوردر شحن (كل الأقسام)', 'Nuovo ordine (tutti)', 'New Order (all)')}
             </button>

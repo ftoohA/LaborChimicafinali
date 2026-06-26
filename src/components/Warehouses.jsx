@@ -4,6 +4,7 @@ import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { I18N } from '../i18n';
 import { uid } from '../helpers';
+import { exportWarehousesExcel } from '../exportExcel';
 import Modal from './Modal';
 
 const tr = (L, ar, it, en) => (L === 'ar' ? ar : L === 'it' ? it : en);
@@ -155,7 +156,10 @@ export default function Warehouses() {
 
   return (
     <>
-      <h2 style={{ margin: '0 0 12px', fontSize: 20, color: 'var(--brand)' }}>📦 {tr(L, 'المخازن', 'Magazzini', 'Warehouses')}</h2>
+      <div className="flex-between" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <h2 style={{ margin: 0, fontSize: 20, color: 'var(--brand)' }}>📦 {tr(L, 'المخازن', 'Magazzini', 'Warehouses')}</h2>
+        <button onClick={() => exportWarehousesExcel(state)}>⬇️ Excel</button>
+      </div>
       {isAdmin && (
         <button className="primary" onClick={() => setCreating(true)}
           style={{ width: '100%', padding: '14px', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>

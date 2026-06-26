@@ -1,4 +1,98 @@
 import * as XLSX from 'xlsx';
+import { productCapacity, netHours } from './helpers';
+
+const today10 = () => new Date().toISOString().slice(0, 10);
+const UNIT = { liter: 'L', ml: 'ml', kg: 'kg', g: 'g', piece: 'pz', carton: 'cart.' };
+// last log time matching a predicate → formatted date
+const lastLogDate = (log, matchFn) => {
+  let t = '';
+  (log || []).forEach(e => { if (matchFn(e) && e.time && e.time > t) t = e.time; });
+  return t ? fmtDate(t) : '';
+};
+const download = (rows, sheet, file, cols) => {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ '—': 'Nessun dato' }]);
+  if (cols) ws['!cols'] = cols;
+  XLSX.utils.book_append_sheet(wb, ws, sheet);
+  XLSX.writeFile(wb, file);
+};
+
+/* ── Warehouses / stock sheet: every material, current stock, unit, last restock ── */
+export function exportWarehousesExcel(s) {
+  const log = s.log || [];
+  const rows = [];
+  (s.warehouses || []).forEach(w => rows.push({
+    Categoria: w.unit === 'piece' ? 'Materiale (programma)' : 'Materiale (preparazione)',
+    Articolo: w.name, Giacenza: w.stock || 0, Unità: UNIT[w.unit] || w.unit,
+    'Ultimo rifornimento': lastLogDate(log, e => e.type === 'warehouse_stock_add' && e.name === w.name),
+  }));
+  (s.cartonTypes || []).forEach(c => rows.push({ Categoria: 'Cartoni', Articolo: c.name + (c.size ? ` (${c.size})` : ''), Giacenza: c.stock || 0, Unità: 'pz', 'Ultimo rifornimento': lastLogDate(log, e => e.id === c.id) }));
+  (s.covers || []).forEach(c => rows.push({ Categoria: 'Coperchi', Articolo: c.name, Giacenza: c.stock || 0, Unità: 'pz', 'Ultimo rifornimento': lastLogDate(log, e => e.id === c.id) }));
+  (s.baskets || []).forEach(b => rows.push({ Categoria: 'Taniche', Articolo: b.name, Giacenza: b.stock || 0, Unità: 'pz', 'Ultimo rifornimento': lastLogDate(log, e => e.id === b.id) }));
+  (s.pastaLids || []).forEach(l => rows.push({ Categoria: 'Coperchi pasta', Articolo: l.name, Giacenza: l.stock || 0, Unità: 'pz', 'Ultimo rifornimento': lastLogDate(log, e => e.id === l.id || e.name === l.name) }));
+  (s.pastaLiquids || []).forEach(l => rows.push({ Categoria: 'Liquidi pasta', Articolo: l.name, Giacenza: l.stock || 0, Unità: 'L', 'Ultimo rifornimento': lastLogDate(log, e => e.id === l.id || e.name === l.name) }));
+  (s.products || []).filter(p => !p.isPasta).forEach(p => {
+    const d = lastLogDate(log, e => e.type === 'restock' && e.product === p.code);
+    rows.push({ Categoria: 'Etichette fronte', Articolo: p.name, Giacenza: p.stock?.ticketsFront || 0, Unità: 'pz', 'Ultimo rifornimento': d });
+    rows.push({ Categoria: 'Etichette retro', Articolo: p.name, Giacenza: p.stock?.ticketsBack || 0, Unità: 'pz', 'Ultimo rifornimento': d });
+  });
+  rows.push({ Categoria: 'Materie pasta', Articolo: 'Spugne', Giacenza: s.pastaStock?.sponges || 0, Unità: 'pz', 'Ultimo rifornimento': lastLogDate(log, e => e.material === 'sponges') });
+  rows.push({ Categoria: 'Materie pasta', Articolo: 'Coperchi spugna', Giacenza: s.pastaStock?.spongeLids || 0, Unità: 'pz', 'Ultimo rifornimento': lastLogDate(log, e => e.material === 'spongeLids') });
+  download(rows, 'Magazzini', `Magazzini_${today10()}.xlsx`, [{ wch: 22 }, { wch: 34 }, { wch: 12 }, { wch: 8 }, { wch: 18 }]);
+}
+
+/* ── Finished products + orders out ── */
+export function exportFinishedExcel(s) {
+  const name = (id) => (s.products || []).find(p => p.id === id)?.name || id;
+  const lastProd = (id) => lastLogDate(s.log, e => e.type === 'produce' && e.productId === id);
+  const stock = [];
+  const push = (obj, reparto, unit) => Object.entries(obj || {}).forEach(([id, q]) => { if ((q || 0) > 0) stock.push({ Reparto: reparto, Prodotto: name(id), Quantità: Number(q), Unità: unit, 'Ultima produzione': lastProd(id) }); });
+  push(s.lineaFinished, 'Linea', 'bancale');
+  push(s.pastaFinished, 'Pasta', 'cartoni');
+  push(s.amazonFinished, 'Amazon', 'cartoni');
+  const orders = [];
+  (s.orders || []).forEach(o => (o.items || []).forEach(it => orders.push({
+    Data: o.ts ? fmtDateTime(new Date(o.ts).toISOString()) : '', Ordine: o.note || '',
+    Reparto: it.source, Prodotto: it.name, Quantità: it.qty, Unità: it.unit, Operatore: o.by || '',
+  })));
+  const wb = XLSX.utils.book_new();
+  const a = XLSX.utils.json_to_sheet(stock.length ? stock : [{ '—': 'Nessuno stock' }]);
+  a['!cols'] = [{ wch: 10 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, a, 'Giacenza finiti');
+  const b = XLSX.utils.json_to_sheet(orders.length ? orders : [{ '—': 'Nessun ordine' }]);
+  b['!cols'] = [{ wch: 17 }, { wch: 16 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, b, 'Ordini usciti');
+  XLSX.writeFile(wb, `Prodotti_finiti_${today10()}.xlsx`);
+}
+
+/* ── Shortages by category ── */
+export function exportShortagesExcel(s, target) {
+  const byName = {};
+  (s.products || []).forEach(p => {
+    productCapacity(p, Number(target) || 0, s).shortages.forEach(sh => {
+      const k = sh.type + '|' + sh.name;
+      if (!byName[k] || sh.missing > byName[k].Manca) byName[k] = { Categoria: sh.type, Articolo: sh.name, Disponibile: Math.floor(sh.available), Serve: Math.ceil(sh.needed), Manca: Math.ceil(sh.missing), Unità: sh.unit };
+    });
+  });
+  const rows = Object.values(byName).sort((a, b) => (a.Categoria < b.Categoria ? -1 : 1) || b.Manca - a.Manca);
+  download(rows, 'Carenze', `Carenze_${today10()}.xlsx`, [{ wch: 14 }, { wch: 36 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }]);
+}
+
+/* ── Attendance: every record, all days (for review) ── */
+export function exportAttendanceExcel(s) {
+  const wname = (id) => (s.workers || []).find(w => w.id === id)?.name || id;
+  const rows = (s.attendance || [])
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    .map(r => ({
+      Data: r.date, Operaio: wname(r.workerId),
+      Entrata: fmtTime(r.clockIn), Uscita: fmtTime(r.clockOut),
+      'Pausa (h)': Number(r.lunch) || 0,
+      'Ore lavorate': netHours(r) != null ? Number(netHours(r).toFixed(2)) : '',
+      Manuale: r.manual ? 'Sì' : '',
+    }));
+  download(rows, 'Presenze', `Presenze_${today10()}.xlsx`, [{ wch: 12 }, { wch: 22 }, { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 12 }, { wch: 9 }]);
+}
 
 // Italian-first labels for log entry types
 const TYPE_LABEL = {

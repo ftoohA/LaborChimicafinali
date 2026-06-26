@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { productCapacity } from '../helpers';
+import { exportShortagesExcel } from '../exportExcel';
 
 const CATS = [
   { key: 'etichette', icon: '🏷️', label: 'Etichette' },
@@ -37,6 +38,7 @@ export default function Shortages() {
           <span className="smallmuted" style={{ fontSize: 12 }}>Obiettivo per prodotto:</span>
           <input type="number" value={target} min={1} onChange={e => setTarget(e.target.value)} style={{ width: 90 }} />
           <span className="smallmuted" style={{ fontSize: 12 }}>bancale</span>
+          <button onClick={() => exportShortagesExcel(state, Number(target) || 0)}>⬇️ Excel</button>
         </div>
       </div>
 

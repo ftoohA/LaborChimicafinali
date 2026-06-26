@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { I18N } from '../i18n';
 import { uid, todayStr, netHours } from '../helpers';
+import { exportAttendanceExcel } from '../exportExcel';
 import Modal from './Modal';
 import { useToast } from './Toast';
 
@@ -109,9 +110,12 @@ export default function Attendance() {
       <input ref={fileRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={onFile} />
 
       <div className="card">
-        <div className="flex-between" style={{ marginBottom: 4 }}>
+        <div className="flex-between" style={{ marginBottom: 4, flexWrap: 'wrap', gap: 8 }}>
           <h3 style={{ margin: 0 }}>🕒 {tr(L, 'الحضور والانصراف', 'Presenze', 'Attendance')}</h3>
-          <span className="smallmuted">{today} · {tr(L, 'إجمالي الساعات', 'Ore totali', 'Total hours')}: <strong style={{ color: 'var(--green)' }}>{totalHours.toFixed(1)}</strong></span>
+          <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+            <span className="smallmuted">{today} · {tr(L, 'إجمالي الساعات', 'Ore totali', 'Total hours')}: <strong style={{ color: 'var(--green)' }}>{totalHours.toFixed(1)}</strong></span>
+            {isAdmin && <button onClick={() => exportAttendanceExcel(state)}>⬇️ Excel</button>}
+          </div>
         </div>
         {workers.length === 0 ? (
           <div className="empty">{tr(L, 'لا يوجد عمال. أضفهم من الإشراف.', 'Nessun operaio. Aggiungili da Supervisione.', 'No workers. Add them from Admin.')}</div>

@@ -235,7 +235,7 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--red)' }}>
                 {tr(state.lang, '⚡ إشعار عاجل', '⚡ Avviso urgente', '⚡ Urgent Notice')}
-                {a.by === 'worker' && <span className="badge" style={{ marginInlineStart: 8, fontSize: 10 }}>👷 {tr(state.lang, 'عامل', 'Operaio', 'Worker')}</span>}
+                {(a.author || a.by === 'worker') && <span className="badge" style={{ marginInlineStart: 8, fontSize: 10 }}>👷 {a.author || tr(state.lang, 'عامل', 'Operaio', 'Worker')}</span>}
               </div>
               <div style={{ marginTop: 4, fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{a.text}</div>
               {a.photo && <img src={a.photo} alt="" style={{ marginTop: 10, maxWidth: '100%', borderRadius: 8, maxHeight: 300, objectFit: 'contain' }} />}
@@ -321,7 +321,7 @@ export default function Dashboard() {
         </div>
         <AnnouncementsBlock />
         {postingAnnouncement && (
-          <AnnouncementModal L={state.lang} T={T} requireCode todayCode={(state.dailyCodes || {})[today] || ''}
+          <AnnouncementModal L={state.lang} T={T} requireCode workers={state.workers || []}
             onClose={() => setPostingAnnouncement(false)}
             onSave={ann => { update({ announcements: [...(state.announcements || []), ann] }); setPostingAnnouncement(false); }} />
         )}
@@ -712,7 +712,7 @@ function ProgramSummary({ pr, T, state }) {
   );
 }
 
-function AnnouncementModal({ L, T, requireCode, todayCode, onClose, onSave }) {
+function AnnouncementModal({ L, T, requireCode, workers = [], onClose, onSave }) {
   const toast = useToast();
   const fileRef = useRef();
   const [text, setText] = useState('');
@@ -723,10 +723,12 @@ function AnnouncementModal({ L, T, requireCode, todayCode, onClose, onSave }) {
   const doPost = () => {
     if (!text.trim()) { toast(tr(L, 'اكتب نص الإشعار', 'Scrivi il testo', 'Write the notice'), true); return; }
     if (requireCode) {
-      if (!todayCode) { setErr(tr(L, 'لا يوجد كود لليوم — كلّم المدير', 'Nessun codice oggi — avvisa il responsabile', 'No code today — ask the manager')); return; }
-      if (code.trim() !== todayCode) { setErr(tr(L, 'الكود غلط', 'Codice errato', 'Wrong code')); return; }
+      const w = workers.find(x => x.pin && x.pin === code.trim());
+      if (!w) { setErr(tr(L, 'الرقم السري غلط', 'PIN errato', 'Wrong PIN')); return; }
+      onSave({ id: uid(), text: text.trim(), photo, createdAt: new Date().toISOString(), active: true, by: 'worker', author: w.name });
+      return;
     }
-    onSave({ id: uid(), text: text.trim(), photo, createdAt: new Date().toISOString(), active: true, by: requireCode ? 'worker' : 'admin' });
+    onSave({ id: uid(), text: text.trim(), photo, createdAt: new Date().toISOString(), active: true, by: 'admin' });
   };
 
   const compress = (file) => {
@@ -764,8 +766,8 @@ function AnnouncementModal({ L, T, requireCode, todayCode, onClose, onSave }) {
       </div>
       {requireCode && (
         <div className="field">
-          <label>🔑 {tr(L, 'الكود اليومي للتأكيد', 'Codice giornaliero per confermare', 'Daily code to confirm')}</label>
-          <input value={code} onChange={e => { setCode(e.target.value); setErr(''); }} onKeyDown={e => e.key === 'Enter' && doPost()}
+          <label>🔒 {tr(L, 'رقمك السري (لمعرفة اسمك)', 'Il tuo PIN (per identificarti)', 'Your PIN (to identify you)')}</label>
+          <input type="password" value={code} onChange={e => { setCode(e.target.value); setErr(''); }} onKeyDown={e => e.key === 'Enter' && doPost()}
             placeholder="••••" style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, letterSpacing: 3 }} />
         </div>
       )}
