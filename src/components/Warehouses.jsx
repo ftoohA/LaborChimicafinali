@@ -23,6 +23,16 @@ export default function Warehouses() {
   // Custom warehouse state
   const [creating, setCreating] = useState(false);
   const [restock, setRestock] = useState(null);
+  const [restockTickets, setRestockTickets] = useState(null); // product whose labels are being topped up
+
+  // Add a new label order to a product's stock (increments front/back)
+  const addTickets = (productId, front, back, reason) => {
+    update({ products: (state.products || []).map(p => p.id !== productId ? p : { ...p, stock: { ...p.stock, ticketsFront: (p.stock?.ticketsFront || 0) + front, ticketsBack: (p.stock?.ticketsBack || 0) + back } }) });
+    const prod = (state.products || []).find(p => p.id === productId);
+    addLog({ type: 'restock', product: prod?.code, reason: reason || 'etichette', by: state.role });
+    toast(T.success_added);
+    setRestockTickets(null);
+  };
 
   // Built-in add modals
   const [addingCover, setAddingCover] = useState(false);
@@ -210,6 +220,41 @@ export default function Warehouses() {
         );
       })}
 
+      {/* Product labels (etichette) — add new label orders to each product */}
+      {(state.products || []).some(p => !p.isPasta) && (
+        <div className="card">
+          <h3 style={{ margin: '0 0 12px' }}>🏷️ {tr(L, 'تيكتة المنتجات', 'Etichette prodotti', 'Product Labels')}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>{tr(L, 'المنتج', 'Prodotto', 'Product')}</th>
+                <th>{tr(L, 'أمامية', 'Fronte', 'Front')}</th>
+                <th>{tr(L, 'خلفية', 'Retro', 'Back')}</th>
+                {isAdmin && <th>{T.actions}</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {(state.products || []).filter(p => !p.isPasta).map(p => {
+                const low = state.settings.lowStock || 5;
+                const f = p.stock?.ticketsFront || 0, b = p.stock?.ticketsBack || 0;
+                const lowF = p.ticketsFront > 0 && f < p.ticketsFront * low;
+                const lowB = p.ticketsBack > 0 && b < p.ticketsBack * low;
+                return (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 600 }}>{p.name}</td>
+                    <td><span className="mono" style={{ fontWeight: 700, color: lowF ? 'var(--red)' : 'var(--green)' }}>{f.toLocaleString()}</span></td>
+                    <td><span className="mono" style={{ fontWeight: 700, color: lowB ? 'var(--red)' : 'var(--green)' }}>{b.toLocaleString()}</span></td>
+                    {isAdmin && (
+                      <td><button style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setRestockTickets(p)}>+ {tr(L, 'إضافة أوردر', 'Aggiungi ordine', 'Add order')}</button></td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Sponges / Sponge Lids (Pasta Abrasiva) */}
       {(state.pastaStock?.sponges > 0 || state.pastaStock?.spongeLids > 0 || isAdmin) && (
         <div className="card">
@@ -234,6 +279,8 @@ export default function Warehouses() {
 
       {/* Modals */}
       {creating && <CreateWarehouseModal L={L} T={T} onClose={() => setCreating(false)} onSave={createWarehouse} />}
+      {restockTickets && <TicketRestockModal L={L} T={T} product={restockTickets} onClose={() => setRestockTickets(null)}
+        onSave={(front, back, reason) => addTickets(restockTickets.id, front, back, reason)} />}
 
       {addingCarton && <CartonModal L={L} T={T} onClose={() => setAddingCarton(false)}
         onSave={c => { update({ cartonTypes: [...(state.cartonTypes || []), c] }); addLog({ type: 'carton_added', name: c.name, by: state.role }); toast(T.success_added); setAddingCarton(false); }} />}
@@ -324,6 +371,46 @@ function CreateWarehouseModal({ L, T, onClose, onSave }) {
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
         <button className="primary" onClick={() => { if (!name.trim()) { toast(tr(L, 'الاسم مطلوب', 'Nome obbligatorio', 'Name required'), true); return; } onSave({ name: name.trim(), unit, stock, lowStock, notes: notes.trim() }); }}>{T.save}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function TicketRestockModal({ L, T, product, onClose, onSave }) {
+  const toast = useToast();
+  const [front, setFront] = useState(0);
+  const [back, setBack] = useState(0);
+  const [reason, setReason] = useState('');
+  return (
+    <Modal onClose={onClose} maxWidth={380}>
+      <h3>🏷️ {tr(L, 'إضافة أوردر تيكتة', 'Aggiungi ordine etichette', 'Add label order')} — {product.name}</h3>
+      <p className="smallmuted" style={{ marginTop: 0 }}>
+        {tr(L, 'اكتب كمية الأوردر الجديد وهتتزاد على المخزون الحالي.', "Inserisci la quantità del nuovo ordine: si somma alla giacenza.", 'Enter the new order quantity; it adds to the current stock.')}
+      </p>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>{tr(L, 'تيكتة أمامية', 'Etichette fronte', 'Front labels')}
+            <span className="smallmuted" style={{ marginInlineStart: 4 }}>· {(product.stock?.ticketsFront || 0).toLocaleString()}</span>
+          </label>
+          <input autoFocus type="number" value={front} onChange={e => setFront(Number(e.target.value) || 0)} />
+        </div>
+        <div className="field">
+          <label>{tr(L, 'تيكتة خلفية', 'Etichette retro', 'Back labels')}
+            <span className="smallmuted" style={{ marginInlineStart: 4 }}>· {(product.stock?.ticketsBack || 0).toLocaleString()}</span>
+          </label>
+          <input type="number" value={back} onChange={e => setBack(Number(e.target.value) || 0)} />
+        </div>
+      </div>
+      <div className="field">
+        <label>{T.reason || tr(L, 'السبب', 'Motivo', 'Reason')}</label>
+        <input value={reason} onChange={e => setReason(e.target.value)} placeholder={tr(L, 'مثال: أوردر #123', 'es: Ordine #123', 'e.g. Order #123')} />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+        <button onClick={onClose}>{T.cancel}</button>
+        <button className="primary" onClick={() => {
+          if ((Number(front) || 0) <= 0 && (Number(back) || 0) <= 0) { toast(tr(L, 'أدخل كمية', 'Inserisci una quantità', 'Enter a quantity'), true); return; }
+          onSave(Number(front) || 0, Number(back) || 0, reason);
+        }}>{T.confirm}</button>
       </div>
     </Modal>
   );
