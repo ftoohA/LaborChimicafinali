@@ -522,13 +522,24 @@ export default function Program() {
                               if (it.type === 'prep_instruction') {
                                 return (
                                   <tr key={`${realPi}-${ii}`} className={isDone ? 'row-done' : 'row-pending'} style={{ background: 'rgba(80,180,120,0.07)' }}>
-                                    <td style={{ verticalAlign: 'middle' }}>
-                                      <div style={{ fontWeight: 700, fontSize: 13 }}>🧪 {state.lang === 'ar' ? 'تحضير' : 'Preparare'}: {it.productName}</div>
-                                      <ul style={{ margin: '4px 0 0', paddingInlineStart: 18, fontSize: 12 }}>
+                                    <td style={{ verticalAlign: 'top' }}>
+                                      <div style={{ fontWeight: 800, fontSize: 14 }}>🧪 {state.lang === 'ar' ? 'تحضير' : 'Preparare'}: {it.productName} <span className="smallmuted" style={{ fontSize: 11 }}>· {it.target} {T.bancale_equiv}</span></div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                                         {(it.ingredients || []).map((g, gi) => (
-                                          <li key={gi}><strong>{g.name}</strong>: {+g.amount.toFixed(2)} {g.unit} <span className="smallmuted">({g.percent}%)</span></li>
+                                          <span key={gi} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px', minWidth: 72 }}>
+                                            <span style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</span>
+                                            <span className="mono" style={{ fontWeight: 800, color: 'var(--green)' }}>{+g.amount.toFixed(2)} {g.unit}</span>
+                                            <span className="smallmuted" style={{ fontSize: 10 }}>{g.percent}%</span>
+                                          </span>
                                         ))}
-                                      </ul>
+                                      </div>
+                                      {(it.steps || it.image) && (
+                                        <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                                          <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--yellow)', marginBottom: 4 }}>📝 {state.lang === 'ar' ? 'خطوات التحضير' : 'Passaggi'}</div>
+                                          {it.steps && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{it.steps}</div>}
+                                          {it.image && <img src={it.image} alt="" style={{ marginTop: 6, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 6 }} />}
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="mono" style={{ fontWeight: 700, verticalAlign: 'middle' }}>{+(it.totalLiters || 0).toFixed(1)} L</td>
                                     <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
@@ -816,11 +827,22 @@ export default function Program() {
                           <td colSpan={colSpanName}>
                             <strong>🧪 {state.lang === 'ar' ? 'تحضير' : 'Preparare'}: {it.productName}</strong>
                             <span className="smallmuted" style={{ fontSize: 11 }}> · {it.target} {T.bancale_equiv}</span>
-                            <ul style={{ margin: '4px 0 0', paddingInlineStart: 18, fontSize: 12 }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                               {(it.ingredients || []).map((g, gi) => (
-                                <li key={gi}><strong>{g.name}</strong>: {+g.amount.toFixed(2)} {g.unit} <span className="smallmuted">({g.percent}%{g.warehouse ? ` · ${g.warehouse}` : ''})</span></li>
+                                <span key={gi} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '4px 8px', minWidth: 66 }}>
+                                  <span style={{ fontWeight: 700, fontSize: 12 }}>{g.name}</span>
+                                  <span className="mono" style={{ fontWeight: 800, color: 'var(--green)' }}>{+g.amount.toFixed(2)} {g.unit}</span>
+                                  <span className="smallmuted" style={{ fontSize: 10 }}>{g.percent}%</span>
+                                </span>
                               ))}
-                            </ul>
+                            </div>
+                            {(it.steps || it.image) && (
+                              <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                                <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--yellow)', marginBottom: 4 }}>📝 {state.lang === 'ar' ? 'خطوات التحضير' : 'Passaggi'}</div>
+                                {it.steps && <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{it.steps}</div>}
+                                {it.image && <img src={it.image} alt="" style={{ marginTop: 6, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 6 }} />}
+                              </div>
+                            )}
                           </td>
                           <td className="mono smallmuted">{+(it.totalLiters || 0).toFixed(1)} L</td>
                           <td><input className="row-notes-inp" type="text" defaultValue={it.notes || ''} placeholder="..." onBlur={e => updateInlineField(realPi, ii, 'notes', e.target.value)} /></td>
@@ -942,7 +964,7 @@ export default function Program() {
               const amount = (w?.unit === 'ml' || w?.unit === 'g') ? grossL * 1000 : grossL;
               return { name: w ? w.name : r.name, warehouse: w?.name || '', unit: UNIT_LBL[w?.unit] || w?.unit || 'L', percent: Number(r.percent), amount };
             });
-            preps.push({ id: uid(), type: 'prep_instruction', productId: p.id, productName: p.name, target, totalLiters: base, ingredients, notes: '', status: 'pending', rows: [{ done: false }] });
+            preps.push({ id: uid(), type: 'prep_instruction', productId: p.id, productName: p.name, target, totalLiters: base, ingredients, steps: p.prepSteps || '', image: p.prepImage || '', notes: '', status: 'pending', rows: [{ done: false }] });
           });
           return preps;
         };

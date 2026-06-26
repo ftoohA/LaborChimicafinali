@@ -176,6 +176,8 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
     pastaBoxId: existing?.pastaBoxId || '',
     pastaLidId: existing?.pastaLidId || '',
     liquidWaste: existing?.liquidWaste ?? 2,
+    prepSteps: existing?.prepSteps || '',
+    prepImage: existing?.prepImage || '',
     initFront: 0,
     initBack: 0,
     initCaps: 0,
@@ -210,24 +212,25 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
 
   const totalPercent = recipe.reduce((s, r) => s + (Number(r.percent) || 0), 0);
 
-  const handleImageFile = (file) => {
+  const compressTo = (file, key, max = 400) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast('Immagine oltre 5MB', true); return; }
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX = 400;
-      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
       const w = Math.round(img.width * scale);
       const h = Math.round(img.height * scale);
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      set('image', canvas.toDataURL('image/jpeg', 0.82));
+      set(key, canvas.toDataURL('image/jpeg', 0.82));
       URL.revokeObjectURL(url);
     };
     img.src = url;
   };
+  const handleImageFile = (file) => compressTo(file, 'image', 400);
+  const prepFileRef = useRef();
 
   // Group covers/baskets by color for display
   const coversByColor = covers.reduce((acc, c) => {
@@ -271,6 +274,8 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
       name: `${form.company.trim()} - ${form.type.trim()}`,
       recipe: cleanedRecipe,
       liquidWaste: Number(form.liquidWaste) || 0,
+      prepSteps: (form.prepSteps || '').trim(),
+      prepImage: form.prepImage || '',
       isPasta: !!form.isPasta,
       hasSponge: !!form.isPasta && !!form.hasSponge,
       pastaLiquidId: form.isPasta ? form.pastaLiquidId : null,
@@ -562,6 +567,22 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
           <div className="field" style={{ maxWidth: 220 }}>
             <label>♻️ Scarto materiale %</label>
             <input type="number" step="any" value={form.liquidWaste} onChange={e => set('liquidWaste', e.target.value)} />
+          </div>
+
+          {/* Preparation steps (shown to the chemist in the Chimico program) */}
+          <div className="field">
+            <label>📝 {T.dir === 'rtl' ? 'خطوات التحضير الكاملة (للكيميائي)' : 'Passaggi di preparazione (per il chimico)'}</label>
+            <textarea value={form.prepSteps} onChange={e => set('prepSteps', e.target.value)} style={{ minHeight: 90 }}
+              placeholder={T.dir === 'rtl' ? 'اكتب خطوات التحضير بالترتيب...' : 'Scrivi i passaggi di preparazione in ordine...'} />
+          </div>
+          <div className="field">
+            <label>🖼 {T.dir === 'rtl' ? 'صورة التحضير (اختياري)' : 'Immagine preparazione (opzionale)'}</label>
+            <input ref={prepFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => compressTo(e.target.files[0], 'prepImage', 700)} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {form.prepImage && <img src={form.prepImage} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)' }} />}
+              <button type="button" onClick={() => prepFileRef.current?.click()}>📷 {T.dir === 'rtl' ? 'اختر صورة' : 'Scegli immagine'}</button>
+              {form.prepImage && <button type="button" className="ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={() => set('prepImage', '')}>✕</button>}
+            </div>
           </div>
         </>
         );
