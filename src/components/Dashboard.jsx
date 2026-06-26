@@ -198,6 +198,18 @@ export default function Dashboard() {
     update({ announcements: (state.announcements || []).map(a => a.id === id ? { ...a, active: false } : a) });
   };
 
+  // Admin reorder: move an active announcement up/down among the active ones
+  const moveAnnouncement = (id, dir) => {
+    const arr = [...(state.announcements || [])];
+    const activeIdxs = arr.map((a, i) => (a.active ? i : -1)).filter(i => i >= 0);
+    const pos = activeIdxs.findIndex(i => arr[i].id === id);
+    const target = pos + dir;
+    if (pos < 0 || target < 0 || target >= activeIdxs.length) return;
+    const i1 = activeIdxs[pos], i2 = activeIdxs[target];
+    [arr[i1], arr[i2]] = [arr[i2], arr[i1]];
+    update({ announcements: arr });
+  };
+
   const AnnouncementsBlock = () => (
     <>
       {scheduledAlerts.map(sa => (
@@ -216,19 +228,24 @@ export default function Dashboard() {
           </div>
         </div>
       ))}
-      {announcements.map(a => (
+      {announcements.map((a, idx) => (
         <div key={a.id} className="card" style={{ borderColor: 'var(--red)', background: 'rgba(220,38,38,0.04)', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <span style={{ fontSize: 28 }}>📢</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--red)' }}>
                 {tr(state.lang, '⚡ إشعار عاجل', '⚡ Avviso urgente', '⚡ Urgent Notice')}
+                {a.by === 'worker' && <span className="badge" style={{ marginInlineStart: 8, fontSize: 10 }}>👷 {tr(state.lang, 'عامل', 'Operaio', 'Worker')}</span>}
               </div>
               <div style={{ marginTop: 4, fontSize: 15, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{a.text}</div>
               {a.photo && <img src={a.photo} alt="" style={{ marginTop: 10, maxWidth: '100%', borderRadius: 8, maxHeight: 300, objectFit: 'contain' }} />}
             </div>
             {state.role === 'admin' && (
-              <button className="ghost" style={{ fontSize: 12, padding: '4px 8px', flexShrink: 0, color: 'var(--muted)' }} onClick={() => dismissAnnouncement(a.id)}>✕</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                <button className="ghost" style={{ fontSize: 12, padding: '2px 8px' }} title={tr(state.lang, 'فوق', 'Su', 'Up')} disabled={idx === 0} onClick={() => moveAnnouncement(a.id, -1)}>▲</button>
+                <button className="ghost" style={{ fontSize: 12, padding: '2px 8px' }} title={tr(state.lang, 'تحت', 'Giù', 'Down')} disabled={idx === announcements.length - 1} onClick={() => moveAnnouncement(a.id, 1)}>▼</button>
+                <button className="ghost" style={{ fontSize: 12, padding: '2px 8px', color: 'var(--muted)' }} onClick={() => dismissAnnouncement(a.id)}>✕</button>
+              </div>
             )}
           </div>
         </div>
@@ -297,7 +314,17 @@ export default function Dashboard() {
     );
     return (
       <>
+        <div style={{ marginBottom: 12 }}>
+          <button className="primary" onClick={() => setPostingAnnouncement(true)}>
+            📢 {tr(state.lang, 'إضافة إشعار عاجل', 'Aggiungi avviso urgente', 'Add urgent notice')}
+          </button>
+        </div>
         <AnnouncementsBlock />
+        {postingAnnouncement && (
+          <AnnouncementModal L={state.lang} T={T} requireCode todayCode={(state.dailyCodes || {})[today] || ''}
+            onClose={() => setPostingAnnouncement(false)}
+            onSave={ann => { update({ announcements: [...(state.announcements || []), ann] }); setPostingAnnouncement(false); }} />
+        )}
         {renderWorkerSchedule()}
         {note && (
           <div className="notes-card" style={{ marginBottom: 16 }}>
@@ -685,11 +712,22 @@ function ProgramSummary({ pr, T, state }) {
   );
 }
 
-function AnnouncementModal({ L, T, onClose, onSave }) {
+function AnnouncementModal({ L, T, requireCode, todayCode, onClose, onSave }) {
   const toast = useToast();
   const fileRef = useRef();
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState('');
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState('');
+
+  const doPost = () => {
+    if (!text.trim()) { toast(tr(L, 'اكتب نص الإشعار', 'Scrivi il testo', 'Write the notice'), true); return; }
+    if (requireCode) {
+      if (!todayCode) { setErr(tr(L, 'لا يوجد كود لليوم — كلّم المدير', 'Nessun codice oggi — avvisa il responsabile', 'No code today — ask the manager')); return; }
+      if (code.trim() !== todayCode) { setErr(tr(L, 'الكود غلط', 'Codice errato', 'Wrong code')); return; }
+    }
+    onSave({ id: uid(), text: text.trim(), photo, createdAt: new Date().toISOString(), active: true, by: requireCode ? 'worker' : 'admin' });
+  };
 
   const compress = (file) => {
     if (!file) return;
@@ -724,12 +762,17 @@ function AnnouncementModal({ L, T, onClose, onSave }) {
           {photo && <button type="button" className="danger ghost" onClick={() => setPhoto('')}>✕</button>}
         </div>
       </div>
+      {requireCode && (
+        <div className="field">
+          <label>🔑 {tr(L, 'الكود اليومي للتأكيد', 'Codice giornaliero per confermare', 'Daily code to confirm')}</label>
+          <input value={code} onChange={e => { setCode(e.target.value); setErr(''); }} onKeyDown={e => e.key === 'Enter' && doPost()}
+            placeholder="••••" style={{ textAlign: 'center', fontSize: 18, fontWeight: 800, letterSpacing: 3 }} />
+        </div>
+      )}
+      {err && <div style={{ color: 'var(--red)', fontSize: 13, marginBottom: 6 }}>{err}</div>}
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
         <button onClick={onClose}>{T.cancel}</button>
-        <button className="primary" onClick={() => {
-          if (!text.trim()) return;
-          onSave({ id: uid(), text: text.trim(), photo, createdAt: new Date().toISOString(), active: true });
-        }}>📢 {tr(L, 'نشر الآن', 'Pubblica ora', 'Post now')}</button>
+        <button className="primary" onClick={doPost}>📢 {tr(L, 'نشر الآن', 'Pubblica ora', 'Post now')}</button>
       </div>
     </Modal>
   );
