@@ -28,7 +28,6 @@ export default function Warehouses() {
   const [addingCover, setAddingCover] = useState(false);
   const [addingBasket, setAddingBasket] = useState(false);
   const [addingCarton, setAddingCarton] = useState(false);
-  const [addingPastaBox, setAddingPastaBox] = useState(false);
   const [addingPastaLid, setAddingPastaLid] = useState(false);
   const [editingPastaLiquid, setEditingPastaLiquid] = useState(null); // null | false | liquid obj
 
@@ -113,12 +112,6 @@ export default function Warehouses() {
       addLabel: tr(L, 'إضافة جركن', 'Aggiungi tanica', 'Add Jerrican'), onAdd: () => setAddingBasket(true),
       renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (state.settings.lowStock || 5)} unit="piece"
         onRestock={() => setRestock({ builtinKey: 'baskets', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deleteBasket(it) : null} />,
-    },
-    {
-      key: 'pastaBoxes', icon: '📦', title: tr(L, 'علب الباستا', 'Scatole pasta', 'Pasta Boxes'), unit: 'piece',
-      addLabel: tr(L, 'إضافة علبة', 'Aggiungi scatola', 'Add Box'), onAdd: () => setAddingPastaBox(true),
-      renderRow: (it) => <Item key={it.id} name={it.name} size={it.size} stock={it.stock} low={(it.stock || 0) <= (state.settings.lowStock || 5)} unit="piece"
-        onRestock={() => setRestock({ builtinKey: 'pastaBoxes', itemId: it.id, name: it.name, unit: 'piece' })} onDelete={isAdmin ? () => deletePastaBox(it) : null} />,
     },
     {
       key: 'pastaLids', icon: '🔴', title: tr(L, 'أغطية الباستا', 'Coperchi pasta', 'Pasta Lids'), unit: 'piece',
@@ -251,10 +244,6 @@ export default function Warehouses() {
       {addingBasket && <BasketModal L={L} T={T} onClose={() => setAddingBasket(false)}
         onSave={b => { update({ baskets: [...state.baskets, b] }); toast(T.success_added); setAddingBasket(false); }} />}
 
-      {addingPastaBox && <PastaMaterialModal L={L} T={T}
-        title={tr(L, 'إضافة علبة باستا', 'Aggiungi scatola pasta', 'Add Pasta Box')}
-        onClose={() => setAddingPastaBox(false)}
-        onSave={b => { update({ pastaBoxes: [...(state.pastaBoxes || []), b] }); toast(T.success_added); setAddingPastaBox(false); }} />}
 
       {addingPastaLid && <PastaMaterialModal L={L} T={T}
         title={tr(L, 'إضافة غطاء باستا', 'Aggiungi coperchio pasta', 'Add Pasta Lid')}

@@ -21,6 +21,7 @@ export default function Attendance() {
   const pendingRef = useRef(null); // { workerId, action }
   const [manual, setManual] = useState(null); // worker being edited manually
   const [pinPrompt, setPinPrompt] = useState(null); // { workerId, action }
+  const [lunchPrompt, setLunchPrompt] = useState(null); // { workerId, photo } — asked on clock-out
 
   const isAdmin = state.role === 'admin';
   const workers = state.workers || [];
@@ -65,16 +66,20 @@ export default function Attendance() {
     const file = e.target.files && e.target.files[0];
     if (!file || !pendingRef.current) return;
     const { workerId, action } = pendingRef.current;
-    downscale(file, (photo) => applyPunch(workerId, action, photo, false));
+    downscale(file, (photo) => {
+      // On clock-out, ask the worker how many lunch hours they took
+      if (action === 'out') setLunchPrompt({ workerId, photo });
+      else applyPunch(workerId, action, photo, false);
+    });
   };
 
-  const applyPunch = (workerId, action, photo, isManual, isoOverride) => {
+  const applyPunch = (workerId, action, photo, isManual, isoOverride, lunch) => {
     const recs = records.map(r => ({ ...r }));
     let rec = recs.find(r => r.workerId === workerId && r.date === today);
     const now = isoOverride || new Date().toISOString();
     if (!rec) { rec = { id: uid(), workerId, date: today }; recs.push(rec); }
     if (action === 'in') { rec.clockIn = now; if (photo) rec.clockInPhoto = photo; }
-    else { rec.clockOut = now; if (photo) rec.clockOutPhoto = photo; }
+    else { rec.clockOut = now; if (photo) rec.clockOutPhoto = photo; if (lunch != null) rec.lunch = Number(lunch) || 0; }
     if (isManual) rec.manual = true;
     update({ attendance: recs });
     addLog({ type: action === 'in' ? 'clock_in' : 'clock_out', workerId, manual: !!isManual, by: state.role });
@@ -215,7 +220,43 @@ export default function Attendance() {
             }} />
         );
       })()}
+
+      {lunchPrompt && (
+        <LunchModal L={L} T={T} worker={workers.find(x => x.id === lunchPrompt.workerId)}
+          onSkip={() => { const a = lunchPrompt; setLunchPrompt(null); applyPunch(a.workerId, 'out', a.photo, false, undefined, 0); }}
+          onConfirm={(hours) => { const a = lunchPrompt; setLunchPrompt(null); applyPunch(a.workerId, 'out', a.photo, false, undefined, hours); }} />
+      )}
     </>
+  );
+}
+
+function LunchModal({ L, T, worker, onSkip, onConfirm }) {
+  const [hours, setHours] = useState(0);
+  const opts = [0, 0.5, 1, 1.5, 2];
+  return (
+    <Modal onClose={onSkip} maxWidth={340}>
+      <h3>🍽️ {tr(L, 'وقت الراحة', 'Pausa pranzo', 'Lunch break')} — {worker?.name}</h3>
+      <p className="smallmuted" style={{ marginTop: 0 }}>
+        {tr(L, 'كام ساعة راحة أخدت النهاردة؟ (هتتخصم من ساعات العمل)',
+              'Quante ore di pausa hai fatto oggi? (verranno sottratte)',
+              'How many break hours today? (deducted from worked time)')}
+      </p>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {opts.map(o => (
+          <button key={o} className={Number(hours) === o ? 'primary' : 'ghost'} style={{ fontSize: 13, padding: '6px 14px' }} onClick={() => setHours(o)}>
+            {o === 0 ? tr(L, 'بدون', 'Nessuna', 'None') : `${o}h`}
+          </button>
+        ))}
+      </div>
+      <div className="field">
+        <label>{tr(L, 'أو اكتب الساعات', 'Oppure inserisci le ore', 'Or enter hours')}</label>
+        <input type="number" step="0.5" min="0" value={hours} onChange={e => setHours(e.target.value)} />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+        <button onClick={onSkip}>{tr(L, 'بدون راحة', 'Nessuna pausa', 'No break')}</button>
+        <button className="primary" onClick={() => onConfirm(hours)}>{T.confirm}</button>
+      </div>
+    </Modal>
   );
 }
 
