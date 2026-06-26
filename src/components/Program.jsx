@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { useStore } from '../store';
 import { useToast } from './Toast';
 import { I18N, PROG_TYPES } from '../i18n';
@@ -99,6 +99,26 @@ export default function Program() {
     });
   };
 
+  /* ---- Deduct a product item's attached warehouse-piece materials ---- */
+  const applyItemMaterials = (whs, it, sign) => {
+    if (!it.materials || !it.materials.length) return whs;
+    return whs.map(w => {
+      const m = it.materials.find(x => x.warehouseId === w.id);
+      if (!m) return w;
+      return { ...w, stock: Math.max(0, (w.stock || 0) + sign * (Number(m.qty) || 0)) };
+    });
+  };
+
+  /* ---- Read-only note of a product item's attached materials ---- */
+  const matNote = (it) => {
+    if (!it.materials || !it.materials.length) return null;
+    const parts = it.materials.map(m => {
+      const w = (state.warehouses || []).find(x => x.id === m.warehouseId);
+      return `${w ? w.name : '?'} ×${m.qty}`;
+    }).join(' · ');
+    return <div className="smallmuted" style={{ fontSize: 10, color: 'var(--yellow)' }}>📦 {parts}</div>;
+  };
+
   /* ---- Is a production item short on materials for its target? ---- */
   const materialShort = (it, progType) => {
     if (progType === 'amazon' || it.type || it.prepType === 'liquid') return false;
@@ -158,8 +178,8 @@ export default function Program() {
       // Pasta carton production: store finished cartons (1 bancale = 12 cartons)
       const pf = { ...(state.pastaFinished || {}) };
       pf[p.id] = Math.max(0, (pf[p.id] || 0) + (-sign) * target * 12);
-      // Composition: deduct each material from its prep warehouse (same as Linea)
-      const updatedWarehouses = consumeRecipe(p, target, sign);
+      // Composition + attached piece-materials: deduct from warehouses
+      const updatedWarehouses = applyItemMaterials(consumeRecipe(p, target, sign), it, sign);
       update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, pastaFinished: pf, warehouses: updatedWarehouses });
     } else {
       const prog = allProgs[pi];
@@ -209,8 +229,8 @@ export default function Program() {
         const lf = { ...(state.lineaFinished || {}) };
         lf[p.id] = Math.max(0, (lf[p.id] || 0) + (-sign) * target);
 
-        // Composition: deduct each material from its prep warehouse
-        const updatedWarehouses = consumeRecipe(p, target, sign);
+        // Composition + attached piece-materials: deduct from warehouses
+        const updatedWarehouses = applyItemMaterials(consumeRecipe(p, target, sign), it, sign);
         update({ programs: newProgs, products: updatedProducts, covers: updatedCovers, baskets: updatedBaskets, cartonTypes: updatedCartons, lineaFinished: lf, warehouses: updatedWarehouses });
       }
     }
@@ -408,6 +428,7 @@ export default function Program() {
                                       {materialShort(it, pr.progType) && it.status !== 'done' && (
                                         <div className="badge bad" style={{ fontSize: 9, marginTop: 2 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</div>
                                       )}
+                                      {matNote(it)}
                                       {p && <div className="smallmuted" style={{ fontSize: 10 }}>{p.company} · {p.type} · {p.liter}L</div>}
                                       {p && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
@@ -620,6 +641,7 @@ export default function Program() {
                                           <div className="badge bad" style={{ fontSize: 9, marginTop: 2 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</div>
                                         )}
                                         {p && <div className="smallmuted" style={{ fontSize: 10 }}>{p.code}</div>}
+                                        {matNote(it)}
                                       </div>
                                     </div>
                                   </td>
@@ -857,6 +879,7 @@ export default function Program() {
                           <strong>{displayName}</strong>
                           {isShort && <span className="badge bad" style={{ marginInlineStart: 6, fontSize: 10 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</span>}
                           {p && <><br /><span className="smallmuted">{p.code}</span></>}
+                          {matNote(it)}
                           {isLiq && <><br /><span className="smallmuted">{it.target}L</span></>}
                         </td>
                         {pr.progType !== 'amazon' && pr.progType !== 'brazer' && (
@@ -976,15 +999,16 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
   const [prepType, setPrepType] = useState('carton');
   const [assignedWorkers, setAssignedWorkers] = useState([]);
 
-  const emptyRow = () => ({ id: uid(), productId: '', pastaLiquidId: '', coverId: '', basketId: '', pastaBoxId: '', pastaLidId: '', target: '', notes: '' });
+  const emptyRow = () => ({ id: uid(), productId: '', pastaLiquidId: '', coverId: '', basketId: '', pastaBoxId: '', pastaLidId: '', target: '', notes: '', materials: [] });
   const [rows, setRows] = useState([emptyRow()]);
-  const [customRows, setCustomRows] = useState([]);
-  const emptyCustomRow = () => ({ id: uid(), warehouseId: '', target: '', notes: '' });
-  const addCustomRow = () => setCustomRows(r => [...r, emptyCustomRow()]);
-  const removeCustomRow = (id) => setCustomRows(r => r.filter(x => x.id !== id));
-  const setCRow = (id, field, value) => setCustomRows(r => r.map(x => x.id !== id ? x : { ...x, [field]: value }));
 
   const setRow = (id, field, value) => setRows(r => r.map(x => x.id === id ? { ...x, [field]: value } : x));
+
+  // Per-row warehouse-piece materials (consumed automatically when the product is confirmed)
+  const pieceWarehouses = (state.warehouses || []).filter(w => w.unit === 'piece');
+  const addMat = (rowId) => setRows(r => r.map(x => x.id !== rowId ? x : { ...x, materials: [...(x.materials || []), { id: uid(), warehouseId: '', qty: '' }] }));
+  const setMat = (rowId, mid, field, val) => setRows(r => r.map(x => x.id !== rowId ? x : { ...x, materials: (x.materials || []).map(m => m.id !== mid ? m : { ...m, [field]: val }) }));
+  const delMat = (rowId, mid) => setRows(r => r.map(x => x.id !== rowId ? x : { ...x, materials: (x.materials || []).filter(m => m.id !== mid) }));
 
   const onProductSelect = (rowId, productId) => {
     const prod = state.products.find(p => p.id === productId);
@@ -1011,18 +1035,14 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
         productId: r.productId, coverId: r.coverId || null, basketId: r.basketId || null,
         pastaBoxId: r.pastaBoxId || null, pastaLidId: r.pastaLidId || null,
         target: Number(r.target), notes: r.notes || '', status: 'pending',
+        // warehouse-piece materials tied to this product (auto-deducted on confirm)
+        materials: (r.materials || []).filter(m => m.warehouseId && Number(m.qty) > 0).map(m => ({ warehouseId: m.warehouseId, qty: Number(m.qty) })),
       }));
     }
-    const customItems = customRows
-      .filter(r => r.warehouseId && Number(r.target) > 0)
-      .map(r => {
-        const wh = (state.warehouses || []).find(w => w.id === r.warehouseId);
-        return { type: 'custom_material', warehouseId: r.warehouseId, target: Number(r.target), unit: wh?.unit || 'piece', notes: r.notes || '', status: 'pending' };
-      });
-    if (!items.length && !customItems.length) { toast('—', true); return; }
+    if (!items.length) { toast('—', true); return; }
     // Liquid pasta items belong to Chimico (location), not Pasta (brazer)
     const savedType = isLiquidPrep ? 'location' : progType;
-    onSave({ id: uid(), label: label || T[`prog_${savedType}`], progType: savedType, chemistId: chemistId || '', assignedWorkers, items: [...items, ...customItems] });
+    onSave({ id: uid(), label: label || T[`prog_${savedType}`], progType: savedType, chemistId: chemistId || '', assignedWorkers, items });
   };
 
   return (
@@ -1098,7 +1118,8 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
           </thead>
           <tbody>
             {rows.map(row => (
-              <tr key={row.id}>
+              <Fragment key={row.id}>
+              <tr>
                 {isLiquidPrep ? (
                   <>
                     <td style={{ padding: '4px 3px' }}>
@@ -1137,6 +1158,28 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
                   </>
                 )}
               </tr>
+              {/* Per-product warehouse-piece materials (auto-deducted with the product) */}
+              {!isLiquidPrep && row.productId && pieceWarehouses.length > 0 && (
+                <tr>
+                  <td colSpan={8} style={{ padding: '0 3px 8px 18px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                      <span className="smallmuted" style={{ fontSize: 11 }}>📦 {state.lang === 'ar' ? 'مواد مرتبطة:' : 'Materiali collegati:'}</span>
+                      {(row.materials || []).map(m => (
+                        <span key={m.id} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                          <select className="input-sm" style={{ minWidth: 110 }} value={m.warehouseId} onChange={e => setMat(row.id, m.id, 'warehouseId', e.target.value)}>
+                            <option value="">{state.lang === 'ar' ? 'المخزن' : 'Magazzino'}</option>
+                            {pieceWarehouses.map(w => <option key={w.id} value={w.id}>{w.name} ({w.stock || 0})</option>)}
+                          </select>
+                          <input className="input-sm" type="number" style={{ width: 64 }} placeholder={state.lang === 'ar' ? 'كمية' : 'q.tà'} value={m.qty} onChange={e => setMat(row.id, m.id, 'qty', e.target.value)} />
+                          <button className="ghost" style={{ color: 'var(--red)', padding: '2px 6px' }} onClick={() => delMat(row.id, m.id)}>✕</button>
+                        </span>
+                      ))}
+                      <button className="ghost" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => addMat(row.id)}>+ {state.lang === 'ar' ? 'مادة' : 'materiale'}</button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -1179,37 +1222,6 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
           </div>
         );
       })()}
-
-      {/* Custom warehouse materials — only when producing (not in liquid prep) */}
-      {!isLiquidPrep && (state.warehouses || []).some(w => w.unit === 'piece') && (
-        <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>
-              📦 {state.lang === 'ar' ? 'مواد من المخازن' : state.lang === 'it' ? 'Materiali dai magazzini' : 'Warehouse Materials'}
-            </span>
-            <button style={{ fontSize: 12, padding: '4px 10px' }} onClick={addCustomRow}>
-              + {state.lang === 'ar' ? 'إضافة مادة' : state.lang === 'it' ? 'Aggiungi materiale' : 'Add Material'}
-            </button>
-          </div>
-          {customRows.map(row => {
-            const wh = (state.warehouses || []).find(w => w.id === row.warehouseId);
-            const unitLbl = state.lang === 'ar' ? 'قطعة' : 'pz';
-            const pieceWh = (state.warehouses || []).filter(w => w.unit === 'piece');
-            return (
-              <div key={row.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
-                <select className="input-sm" style={{ flex: 2, minWidth: 150 }} value={row.warehouseId}
-                  onChange={e => setCRow(row.id, 'warehouseId', e.target.value)}>
-                  <option value="">{state.lang === 'ar' ? 'المخزن' : state.lang === 'it' ? 'Magazzino' : 'Warehouse'}</option>
-                  {pieceWh.map(w => <option key={w.id} value={w.id}>{w.name} ({w.stock || 0} {unitLbl})</option>)}
-                </select>
-                <input className="input-sm" type="number" style={{ width: 80 }} placeholder={unitLbl}
-                  value={row.target} onChange={e => setCRow(row.id, 'target', e.target.value)} />
-                <button className="ghost" style={{ color: 'var(--red)', padding: '4px 8px' }} onClick={() => removeCustomRow(row.id)}>✕</button>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onClose}>{T.cancel}</button>
