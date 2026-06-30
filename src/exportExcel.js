@@ -41,6 +41,108 @@ export function exportWarehousesExcel(s) {
   download(rows, 'Magazzini', `Magazzini_${today10()}.xlsx`, [{ wch: 22 }, { wch: 34 }, { wch: 12 }, { wch: 8 }, { wch: 18 }]);
 }
 
+/* ── Products: full details (3 sheets: Linea, Pasta, Ricette) ── */
+export function exportProductsExcel(s) {
+  const covers      = s.covers      || [];
+  const baskets     = s.baskets     || [];
+  const cartonTypes = s.cartonTypes || [];
+  const pastaLiquids = s.pastaLiquids || [];
+  const pastaBoxes  = s.pastaBoxes  || [];
+  const pastaLids   = s.pastaLids   || [];
+  const warehouses  = s.warehouses  || [];
+
+  const lineaRows = (s.products || []).filter(p => !p.isPasta).map(p => {
+    const cover  = covers.find(c => c.id === p.coverId);
+    const basket = baskets.find(b => b.id === p.basketId);
+    const carton = cartonTypes.find(c => c.id === p.cartonId);
+    return {
+      Nome:               p.name,
+      Azienda:            p.company   || '',
+      Tipo:               p.type      || '',
+      Codice:             p.code      || '',
+      Barcode:            p.barcode   || '',
+      Litri:              p.liter     || 0,
+      'Etich. fronte/bancale': p.ticketsFront || 0,
+      'Etich. retro/bancale':  p.ticketsBack  || 0,
+      'Stock etich. fronte':   p.stock?.ticketsFront || 0,
+      'Stock etich. retro':    p.stock?.ticketsBack  || 0,
+      'Coperchi/bancale':  p.capsPer      || 0,
+      'Taniche/bancale':   p.jerricansPer || 0,
+      Coperchio:  cover  ? `${cover.name} · ${cover.color || '—'} · ${cover.size || '?'}`  : '—',
+      Tanica:     basket ? `${basket.name} · ${basket.color || '—'} · ${basket.size || '?'}` : '—',
+      Cartone:    carton ? carton.name + (carton.size ? ` (${carton.size})` : '') : '—',
+      'Scarto %': p.liquidWaste || 0,
+      'Passaggi prep.': p.prepSteps || '',
+    };
+  });
+
+  const pastaRows = (s.products || []).filter(p => p.isPasta).map(p => {
+    const liquid = pastaLiquids.find(l => l.id === p.pastaLiquidId);
+    const box    = pastaBoxes.find(b => b.id === p.pastaBoxId);
+    const lid    = pastaLids.find(l => l.id === p.pastaLidId);
+    const carton = cartonTypes.find(c => c.id === p.cartonId);
+    return {
+      Nome:             p.name,
+      Azienda:          p.company  || '',
+      Tipo:             p.type     || '',
+      Codice:           p.code     || '',
+      Barcode:          p.barcode  || '',
+      Litri:            p.liter    || 0,
+      'Liquido pasta':  liquid ? liquid.name : '—',
+      'Scatola pasta':  box    ? box.name    : '—',
+      'Coperchio pasta': lid   ? lid.name    : '—',
+      Cartone:          carton ? carton.name + (carton.size ? ` (${carton.size})` : '') : '—',
+      'Con spugna':     p.hasSponge ? 'Sì' : 'No',
+    };
+  });
+
+  const recipeRows = [];
+  (s.products || []).forEach(p => {
+    const recipe = (p.recipe || []).filter(r => r.name && Number(r.percent) > 0);
+    if (!recipe.length) return;
+    const litersPerBancale = p.isPasta
+      ? 12 * (Number(p.liter) || 0)
+      : (Number(p.jerricansPer) || 0) * (Number(p.liter) || 0);
+    const wasteMul = 1 + (Number(p.liquidWaste) || 0) / 100;
+    recipe.forEach(r => {
+      const w = warehouses.find(x => x.id === r.warehouseId);
+      const grossL = (Number(r.percent) / 100) * litersPerBancale * wasteMul;
+      const amount = (w?.unit === 'ml' || w?.unit === 'g') ? grossL * 1000 : grossL;
+      recipeRows.push({
+        Prodotto:         p.name,
+        Codice:           p.code || '',
+        'Tipo prodotto':  p.isPasta ? 'Pasta' : 'Linea',
+        Ingrediente:      r.name || '',
+        Magazzino:        w ? w.name : '—',
+        '%':              Number(r.percent) || 0,
+        'Q.tà/bancale':   +amount.toFixed(3),
+        Unità:            UNIT[w?.unit] || w?.unit || 'L',
+      });
+    });
+  });
+
+  const wb = XLSX.utils.book_new();
+  const addSh = (rows, name, cols) => {
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{ '—': 'Nessun dato' }]);
+    if (cols) ws['!cols'] = cols;
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  addSh(lineaRows, 'Linea', [
+    { wch: 32 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 7 },
+    { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+    { wch: 14 }, { wch: 14 }, { wch: 26 }, { wch: 26 }, { wch: 20 },
+    { wch: 9 }, { wch: 60 },
+  ]);
+  addSh(pastaRows, 'Pasta', [
+    { wch: 32 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 7 },
+    { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 20 }, { wch: 10 },
+  ]);
+  addSh(recipeRows, 'Ricette', [
+    { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 24 }, { wch: 24 }, { wch: 7 }, { wch: 12 }, { wch: 8 },
+  ]);
+  XLSX.writeFile(wb, `Prodotti_${today10()}.xlsx`);
+}
+
 /* ── Finished products + orders out ── */
 export function exportFinishedExcel(s) {
   const name = (id) => (s.products || []).find(p => p.id === id)?.name || id;

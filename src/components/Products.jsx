@@ -5,6 +5,7 @@ import { useConfirm } from './ConfirmDialog';
 import { I18N } from '../i18n';
 import { bancaleEquivalent, stockStatus, uid } from '../helpers';
 import Modal from './Modal';
+import { exportProductsExcel } from '../exportExcel';
 
 export default function Products() {
   const { state, update, addLog } = useStore();
@@ -29,9 +30,14 @@ export default function Products() {
     <>
       <div className="flex-between" style={{ marginBottom: 14 }}>
         <input placeholder={T.search} value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 260 }} />
-        {state.role === 'admin' && (
-          <button className="primary" onClick={() => setEditing(false)}>+ {T.add_product}</button>
-        )}
+        <div className="row" style={{ gap: 8 }}>
+          {state.role === 'admin' && (
+            <button onClick={() => exportProductsExcel(state)}>⬇️ Excel</button>
+          )}
+          {state.role === 'admin' && (
+            <button className="primary" onClick={() => setEditing(false)}>+ {T.add_product}</button>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -270,7 +276,7 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
       coverId: form.isPasta ? null : (form.coverId || null),
       basketId: form.isPasta ? null : (form.basketId || null),
       hasCarton: form.isPasta ? false : !!form.hasCarton,
-      cartonId: (!form.isPasta && form.hasCarton) ? (form.cartonId || null) : null,
+      cartonId: form.isPasta ? (form.cartonId || null) : (form.hasCarton ? (form.cartonId || null) : null),
       name: `${form.company.trim()} - ${form.type.trim()}`,
       recipe: cleanedRecipe,
       liquidWaste: Number(form.liquidWaste) || 0,
@@ -431,6 +437,16 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
               </select>
             </div>
           </div>
+
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label style={{ fontWeight: 'bold' }}>📦 {T.dir === 'rtl' ? 'الكرتونة (من مخزن الكراتين)' : 'Cartone (dal magazzino cartoni)'}</label>
+            <select value={form.cartonId} onChange={e => set('cartonId', e.target.value)}>
+              <option value="">— {T.dir === 'rtl' ? 'بدون كرتونة' : 'Nessun cartone'} —</option>
+              {(cartonTypes || []).map(c => (
+                <option key={c.id} value={c.id}>{c.name}{c.size ? ` (${c.size})` : ''} [{(c.stock || 0).toLocaleString()} {T.dir === 'rtl' ? 'قطعة' : 'pz'}]</option>
+              ))}
+            </select>
+          </div>
         </>
       )}
 
@@ -496,8 +512,8 @@ function ProductModal({ existing, T, covers, baskets, companies, onClose, onSave
         </>
       )}
 
-      {(() => {
-        // Base liquid/material volume per bancale: pasta = 12 cartoni × L, Linea = taniche × L
+      {!form.isPasta && (() => {
+        // Base liquid/material volume per bancale: Linea = taniche × L
         const litersPerBancale = form.isPasta
           ? 12 * (Number(form.liter) || 0)
           : (Number(form.jerricansPer) || 0) * (Number(form.liter) || 0);

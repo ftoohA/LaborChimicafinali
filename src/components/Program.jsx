@@ -178,9 +178,12 @@ export default function Program() {
       // Pasta carton production: store finished cartons (1 bancale = 12 cartons)
       const pf = { ...(state.pastaFinished || {}) };
       pf[p.id] = Math.max(0, (pf[p.id] || 0) + (-sign) * target * 12);
-      // Composition + attached piece-materials: deduct from warehouses
-      const updatedWarehouses = applyItemMaterials(consumeRecipe(p, target, sign), it, sign);
-      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, pastaFinished: pf, warehouses: updatedWarehouses });
+      const updatedWarehouses = applyItemMaterials(state.warehouses || [], it, sign);
+      const pastaCartonId = it.cartonId || p.cartonId;
+      const updatedCartons = pastaCartonId
+        ? (state.cartonTypes || []).map(c => c.id !== pastaCartonId ? c : { ...c, stock: Math.max(0, (c.stock || 0) + sign * target * (1 + (c.waste || 0) / 100)) })
+        : (state.cartonTypes || []);
+      update({ programs: newProgs, pastaBoxes: updatedPastaBoxes, pastaLids: updatedPastaLids, pastaStock: updatedPastaStock, pastaLiquids: updatedPastaLiquids, pastaFinished: pf, warehouses: updatedWarehouses, cartonTypes: updatedCartons });
     } else {
       const prog = allProgs[pi];
       const isAmazon = prog && prog.progType === 'amazon';
@@ -556,10 +559,10 @@ export default function Program() {
                               }
                               const isLiq = it.prepType === 'liquid';
                               const isCustom = it.type === 'custom_material';
+                              const liqObj = isLiq ? (state.pastaLiquids || []).find(x => x.id === it.pastaLiquidId) : null;
                               let name = '?', sub = '', qtyLabel = it.target;
                               if (isLiq) {
-                                const liq = (state.pastaLiquids || []).find(x => x.id === it.pastaLiquidId);
-                                name = `🧪 ${liq ? liq.name : '?'}`;
+                                name = `🧪 ${liqObj ? liqObj.name : '?'}`;
                                 qtyLabel = `${it.target} ${state.lang === 'ar' ? 'لتر' : 'L'}`;
                               } else if (isCustom) {
                                 const wh = (state.warehouses || []).find(w => w.id === it.warehouseId);
@@ -573,9 +576,34 @@ export default function Program() {
                               }
                               return (
                                 <tr key={`${realPi}-${ii}`} className={isDone ? 'row-done' : 'row-pending'}>
-                                  <td style={{ verticalAlign: 'middle' }}>
+                                  <td style={{ verticalAlign: 'top' }}>
                                     <div style={{ fontWeight: 700, fontSize: 13 }}>{name}</div>
                                     {sub && <div className="smallmuted" style={{ fontSize: 10 }}>{sub}</div>}
+                                    {isLiq && liqObj && (() => {
+                                      const liters = Number(it.target) || 0;
+                                      const ings = (liqObj.recipe || []).filter(r => r.name && Number(r.ratio) > 0);
+                                      return (
+                                        <>
+                                          {ings.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                              {ings.map((r, gi) => (
+                                                <span key={gi} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px', minWidth: 72 }}>
+                                                  <span style={{ fontWeight: 700, fontSize: 13 }}>{r.name}</span>
+                                                  <span className="mono" style={{ fontWeight: 800, color: 'var(--green)' }}>{+(Number(r.ratio) * liters).toFixed(2)} L</span>
+                                                  <span className="smallmuted" style={{ fontSize: 10 }}>{r.ratio} L/L</span>
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {liqObj.prepNotes && (
+                                            <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                                              <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--yellow)', marginBottom: 4 }}>📝 {state.lang === 'ar' ? 'خطوات التحضير' : 'Passaggi'}</div>
+                                              <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{liqObj.prepNotes}</div>
+                                            </div>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </td>
                                   <td className="mono" style={{ fontWeight: 700, verticalAlign: 'middle' }}>{qtyLabel}</td>
                                   <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
@@ -897,12 +925,37 @@ export default function Program() {
                     return (
                       <tr key={ii} className={it.status === 'done' ? 'row-done' : 'row-pending'}>
                         <td className="mono smallmuted">{ii + 1}</td>
-                        <td>
+                        <td style={{ verticalAlign: 'top' }}>
                           <strong>{displayName}</strong>
                           {isShort && <span className="badge bad" style={{ marginInlineStart: 6, fontSize: 10 }}>⛔ {state.lang === 'ar' ? 'مواد ناقصة' : 'Materiali insuff.'}</span>}
                           {p && <><br /><span className="smallmuted">{p.code}</span></>}
                           {matNote(it)}
                           {isLiq && <><br /><span className="smallmuted">{it.target}L</span></>}
+                          {isLiq && liq && (() => {
+                            const liters = Number(it.target) || 0;
+                            const ings = (liq.recipe || []).filter(r => r.name && Number(r.ratio) > 0);
+                            return (
+                              <>
+                                {ings.length > 0 && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                                    {ings.map((r, gi) => (
+                                      <span key={gi} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: '4px 8px', minWidth: 66 }}>
+                                        <span style={{ fontWeight: 700, fontSize: 12 }}>{r.name}</span>
+                                        <span className="mono" style={{ fontWeight: 800, color: 'var(--green)' }}>{+(Number(r.ratio) * liters).toFixed(2)} L</span>
+                                        <span className="smallmuted" style={{ fontSize: 10 }}>{r.ratio} L/L</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {liq.prepNotes && (
+                                  <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                                    <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--yellow)', marginBottom: 4 }}>📝 {state.lang === 'ar' ? 'خطوات التحضير' : 'Passaggi'}</div>
+                                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{liq.prepNotes}</div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </td>
                         {pr.progType !== 'amazon' && pr.progType !== 'brazer' && (
                           <><td className="smallmuted">{cv ? cv.name : '—'}</td><td className="smallmuted">{bk ? bk.name : '—'}</td></>
@@ -1021,7 +1074,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
   const [prepType, setPrepType] = useState('carton');
   const [assignedWorkers, setAssignedWorkers] = useState([]);
 
-  const emptyRow = () => ({ id: uid(), productId: '', pastaLiquidId: '', coverId: '', basketId: '', pastaBoxId: '', pastaLidId: '', target: '', notes: '', materials: [] });
+  const emptyRow = () => ({ id: uid(), productId: '', pastaLiquidId: '', coverId: '', basketId: '', pastaBoxId: '', pastaLidId: '', cartonId: '', target: '', notes: '', materials: [] });
   const [rows, setRows] = useState([emptyRow()]);
 
   const setRow = (id, field, value) => setRows(r => r.map(x => x.id === id ? { ...x, [field]: value } : x));
@@ -1055,7 +1108,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
     } else {
       items = rows.filter(r => r.productId && Number(r.target) > 0).map(r => ({
         productId: r.productId, coverId: r.coverId || null, basketId: r.basketId || null,
-        pastaBoxId: r.pastaBoxId || null, pastaLidId: r.pastaLidId || null,
+        pastaBoxId: r.pastaBoxId || null, pastaLidId: r.pastaLidId || null, cartonId: r.cartonId || null,
         target: Number(r.target), notes: r.notes || '', status: 'pending',
         // warehouse-piece materials tied to this product (auto-deducted on confirm)
         materials: (r.materials || []).filter(m => m.warehouseId && Number(m.qty) > 0).map(m => ({ warehouseId: m.warehouseId, qty: Number(m.qty) })),
@@ -1132,7 +1185,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
                 <>
                   <th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{T.col_product}</th>
                   {!isBrazer && progType !== 'amazon' && <><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{T.col_cover}</th><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{T.col_basket}</th></>}
-                  {isBrazer && <><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{state.lang === 'ar' ? 'علبة الباستا' : 'Scatola'}</th><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{state.lang === 'ar' ? 'غطاء الباستا' : 'Coperchio'}</th></>}
+                  {isBrazer && <><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{state.lang === 'ar' ? 'علبة الباستا' : 'Scatola'}</th><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{state.lang === 'ar' ? 'غطاء الباستا' : 'Coperchio'}</th><th style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{state.lang === 'ar' ? 'الكرتونة' : 'Cartone'}</th></>}
                   {[T.col_target, T.col_notes, ''].map((h, i) => <th key={i} style={{ padding: '6px 4px', textAlign: 'start', fontWeight: 600 }}>{h}</th>)}
                 </>
               )}
@@ -1172,6 +1225,7 @@ function AddProgramModal({ date, T, state, initialType = 'daily', lockType = fal
                       <>
                         <td style={{ padding: '4px 3px' }}><select className="input-sm" value={row.pastaBoxId} onChange={e => setRow(row.id, 'pastaBoxId', e.target.value)}><option value="">{state.lang === 'ar' ? 'اختر علبة' : 'Seleziona scatola'}</option>{(state.pastaBoxes || []).map(pb => <option key={pb.id} value={pb.id}>{pb.name}</option>)}</select></td>
                         <td style={{ padding: '4px 3px' }}><select className="input-sm" value={row.pastaLidId} onChange={e => setRow(row.id, 'pastaLidId', e.target.value)}><option value="">{state.lang === 'ar' ? 'اختر غطاء' : 'Seleziona coperchio'}</option>{(state.pastaLids || []).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}</select></td>
+                        <td style={{ padding: '4px 3px' }}><select className="input-sm" value={row.cartonId} onChange={e => setRow(row.id, 'cartonId', e.target.value)}><option value="">{state.lang === 'ar' ? 'بدون كرتونة' : 'Nessun cartone'}</option>{(state.cartonTypes || []).map(c => <option key={c.id} value={c.id}>{c.name}{c.size ? ` (${c.size})` : ''}</option>)}</select></td>
                       </>
                     )}
                     <td style={{ padding: '4px 3px' }}><input className="input-sm" type="number" style={{ width: 76 }} placeholder={T.target_bancale} value={row.target} onChange={e => setRow(row.id, 'target', e.target.value)} /></td>
